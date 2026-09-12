@@ -49,6 +49,24 @@ python cli/agentctl.py deploy coding-agent --env local --seed-policies
 python cli/agentctl.py list
 ```
 
+## Enterprise UI
+
+Open http://localhost:3000 after `cd web && npm install && npm run build && npm run start`.
+
+| Surface | Purpose |
+|---------|---------|
+| Overview | Fleet KPIs, pending approvals, recent runs/evals |
+| Registry | Agent inventory, versions, environments |
+| Agent detail | Deploy, rollback, start governed run |
+| Runs / Timeline | Observable events (policy, tools, approvals) |
+| Approvals | Human gates for high-risk tool actions |
+| Policies | ALLOW / DENY / APPROVAL_REQUIRED rules |
+| Evaluations | Version scores and regression |
+| Audit | Control-plane action history |
+| Costs | Per-agent run economics |
+
+Login demo: org `acme-auto` · `admin@acme.local` · `agentos-demo`
+
 ## What we own
 
 Lifecycle: **Register → Identify → Configure → Authorize → Test → Deploy → Run → Observe → Evaluate → Audit → Roll back**

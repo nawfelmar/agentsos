@@ -1,11 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { EmptyState, PageHeader, StatusBadge, formatTime } from "../components/ui";
 
 export default function ApprovalsPage() {
   const [items, setItems] = useState<any[]>([]);
   const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
 
   async function refresh() {
     const data = await api("/approvals?status_filter=pending");
@@ -13,48 +17,65 @@ export default function ApprovalsPage() {
   }
 
   useEffect(() => {
-    refresh().catch(console.error);
+    refresh().catch((e) => setError(String(e.message || e)));
   }, []);
 
   async function decide(id: string, decision: "approve" | "reject", runId: string) {
+    setBusy(id);
     setMsg("");
-    await api(`/approvals/${id}/decide`, { method: "POST", body: JSON.stringify({ decision }) });
-    if (decision === "approve") {
-      await api(`/runs/${runId}/resume`, { method: "POST" });
+    setError("");
+    try {
+      await api(`/approvals/${id}/decide`, { method: "POST", body: JSON.stringify({ decision }) });
+      if (decision === "approve") {
+        await api(`/runs/${runId}/resume`, { method: "POST" });
+      }
+      setMsg(`${decision === "approve" ? "Approved" : "Rejected"} ${id.slice(0, 8)}`);
+      await refresh();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(null);
     }
-    setMsg(`${decision}d ${id}`);
-    await refresh();
   }
 
   return (
     <>
-      <h1>Approvals</h1>
-      <p className="sub">Human gates for high-risk tool actions. Decisions are audited.</p>
-      {msg && <p className="badge ok">{msg}</p>}
-      {items.length === 0 && <p className="sub">No pending approvals.</p>}
-      {items.map((a) => (
-        <div className="panel" key={a.id}>
-          <h3>
-            {a.action.toUpperCase()} · {a.resource}
-          </h3>
-          <p>
-            Agent <span className="badge">{a.agent_name}</span> · Risk{" "}
-            <span className={`badge ${a.risk === "HIGH" ? "warn" : ""}`}>{a.risk}</span>
-          </p>
-          <p className="sub">{a.reason}</p>
-          <pre style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>
-            {JSON.stringify(a.args, null, 2)}
-          </pre>
-          <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
-            <button className="btn" onClick={() => decide(a.id, "approve", a.run_id)}>
-              Approve
-            </button>
-            <button className="btn secondary" onClick={() => decide(a.id, "reject", a.run_id)}>
-              Reject
-            </button>
+      <PageHeader
+        title="Approvals"
+        lede="Human gates for high-risk tool actions. Decisions are recorded in the immutable audit trail."
+      />
+      {msg ? <div className="success-banner">{msg}</div> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
+
+      {!items.length ? (
+        <div className="panel"><div className="panel-bd"><EmptyState title="No pending approvals" body="Risky tool calls will appear here when policy requires human authorization." /></div></div>
+      ) : (
+        items.map((a) => (
+          <div className="approval-card" key={a.id}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "flex-start" }}>
+              <div>
+                <h3 style={{ margin: "0 0 0.35rem", fontSize: "1.05rem" }}>
+                  {a.action} · {a.resource}
+                </h3>
+                <div className="event-meta">
+                  Agent <span className="badge accent">{a.agent_name}</span> · Risk <StatusBadge status={a.risk} /> · {formatTime(a.created_at)}
+                </div>
+              </div>
+              <Link className="btn secondary sm" href={`/runs/${a.run_id}`}>View run</Link>
+            </div>
+            <p style={{ margin: "0.85rem 0", color: "var(--ink-2)" }}>{a.reason}</p>
+            <pre className="pre">{JSON.stringify(a.args || {}, null, 2)}</pre>
+            <div className="split-actions">
+              <button className="btn" disabled={busy === a.id} onClick={() => decide(a.id, "approve", a.run_id)}>
+                Approve
+              </button>
+              <button className="btn secondary" disabled={busy === a.id} onClick={() => decide(a.id, "reject", a.run_id)}>
+                Reject
+              </button>
+            </div>
           </div>
-        </div>
-      ))}
+        ))
+      )}
     </>
   );
 }

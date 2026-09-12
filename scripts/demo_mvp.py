@@ -51,8 +51,13 @@ def main() -> int:
     thresholds.write_text("brake_pressure_warning_bar: 3.0\n")
 
     # Step 1 — register v1
-    client.register_agent_file(ROOT / "examples" / "coding-agent" / "agent.yaml")
-    print("Registered coding-agent@1.0.0")
+    try:
+        client.register_agent_file(ROOT / "examples" / "coding-agent" / "agent.yaml")
+        print("Registered coding-agent@1.0.0")
+    except RuntimeError as exc:
+        if "409" not in str(exc):
+            raise
+        print("coding-agent@1.0.0 already registered")
 
     # Step 2 — deploy + policies
     dep = client.deploy("coding-agent", environment="local", version="1.0.0", seed_demo_policies=True)

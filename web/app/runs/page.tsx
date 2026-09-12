@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { EmptyState, PageHeader, StatusBadge, formatTime, shortId } from "../components/ui";
 
 export default function RunsPage() {
   const [runs, setRuns] = useState<any[]>([]);
@@ -14,46 +15,41 @@ export default function RunsPage() {
 
   return (
     <>
-      <h1>Runs</h1>
-      <p className="sub">Observable executions — status, cost, timeline. No fake chain-of-thought.</p>
-      {error && <p className="error">{error}</p>}
+      <PageHeader
+        title="Runs"
+        lede="Observable executions across the fleet. Timelines show tool gates, approvals, and outcomes — not fake chain-of-thought."
+      />
+      {error ? <div className="error-banner">{error}</div> : null}
       <div className="panel">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Agent</th>
-              <th>Version</th>
-              <th>Status</th>
-              <th>Cost</th>
-              <th>Created</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {runs.map((r) => (
-              <tr key={r.id}>
-                <td>{r.agent_name}</td>
-                <td>
-                  <span className="badge">{r.version}</span>
-                </td>
-                <td>
-                  <span
-                    className={`badge ${
-                      r.status === "succeeded" ? "ok" : r.status === "failed" ? "bad" : "warn"
-                    }`}
-                  >
-                    {r.status}
-                  </span>
-                </td>
-                <td>€{Number(r.cost_estimate || 0).toFixed(2)}</td>
-                <td>{r.created_at}</td>
-                <td>
-                  <Link href={`/runs/${r.id}`}>Timeline</Link>
-                </td>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Run</th>
+                <th>Agent</th>
+                <th>Env</th>
+                <th>Status</th>
+                <th>Cost</th>
+                <th>Created</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {runs.map((r) => (
+                <tr key={r.id}>
+                  <td><Link className="mono" href={`/runs/${r.id}`}>{shortId(r.id)}</Link></td>
+                  <td>{r.agent_name} <span className="badge">{r.version}</span></td>
+                  <td>{r.environment}</td>
+                  <td><StatusBadge status={r.status} /></td>
+                  <td>€{Number(r.cost_estimate || 0).toFixed(2)}</td>
+                  <td className="mono">{formatTime(r.created_at)}</td>
+                </tr>
+              ))}
+              {!runs.length ? (
+                <tr><td colSpan={6}><EmptyState title="No runs" body="Start a governed run from an agent detail page." /></td></tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   );

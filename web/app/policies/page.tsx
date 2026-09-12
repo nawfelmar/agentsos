@@ -2,49 +2,104 @@
 
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { EffectBadge, EmptyState, PageHeader } from "../components/ui";
 
 export default function PoliciesPage() {
   const [policies, setPolicies] = useState<any[]>([]);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    agent_name: "coding-agent",
+    environment: "local",
+    resource: "git.write",
+    effect: "APPROVAL_REQUIRED",
+  });
+  const [msg, setMsg] = useState("");
+
+  async function refresh() {
+    setPolicies(await api("/policies"));
+  }
 
   useEffect(() => {
-    api("/policies").then(setPolicies).catch(console.error);
+    refresh().catch((e) => setError(String(e.message || e)));
   }, []);
+
+  async function save() {
+    setMsg("");
+    setError("");
+    try {
+      await api("/policies", { method: "PUT", body: JSON.stringify(form) });
+      setMsg(`Updated ${form.resource} → ${form.effect}`);
+      await refresh();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
 
   return (
     <>
-      <h1>Policies</h1>
-      <p className="sub">Least privilege by default. ALLOW · DENY · APPROVAL_REQUIRED.</p>
-      <div className="panel">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Agent</th>
-              <th>Environment</th>
-              <th>Resource</th>
-              <th>Effect</th>
-            </tr>
-          </thead>
-          <tbody>
-            {policies.map((p) => (
-              <tr key={p.id}>
-                <td>{p.agent_name}</td>
-                <td>{p.environment}</td>
-                <td>
-                  <span className="badge">{p.resource}</span>
-                </td>
-                <td>
-                  <span
-                    className={`badge ${
-                      p.effect === "ALLOW" ? "ok" : p.effect === "DENY" ? "bad" : "warn"
-                    }`}
-                  >
-                    {p.effect}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <PageHeader
+        title="Policies"
+        lede="Least privilege by default. Tool access is ALLOW, DENY, or APPROVAL_REQUIRED at the execution boundary."
+      />
+      {msg ? <div className="success-banner">{msg}</div> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
+
+      <div className="grid-2">
+        <div className="panel">
+          <div className="panel-hd"><h2>Effective rules</h2></div>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Agent</th>
+                  <th>Environment</th>
+                  <th>Resource</th>
+                  <th>Effect</th>
+                </tr>
+              </thead>
+              <tbody>
+                {policies.map((p) => (
+                  <tr key={p.id}>
+                    <td>{p.agent_name}</td>
+                    <td>{p.environment}</td>
+                    <td><span className="badge">{p.resource}</span></td>
+                    <td><EffectBadge effect={p.effect} /></td>
+                  </tr>
+                ))}
+                {!policies.length ? (
+                  <tr><td colSpan={4}><EmptyState title="No policies" body="Deploy with demo policies or create rules here." /></td></tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-hd"><h2>Upsert rule</h2></div>
+          <div className="panel-bd">
+            <div className="field">
+              <label>Agent</label>
+              <input value={form.agent_name} onChange={(e) => setForm({ ...form, agent_name: e.target.value })} />
+            </div>
+            <div className="field">
+              <label>Environment</label>
+              <input value={form.environment} onChange={(e) => setForm({ ...form, environment: e.target.value })} />
+            </div>
+            <div className="field">
+              <label>Resource</label>
+              <input value={form.resource} onChange={(e) => setForm({ ...form, resource: e.target.value })} />
+            </div>
+            <div className="field">
+              <label>Effect</label>
+              <select value={form.effect} onChange={(e) => setForm({ ...form, effect: e.target.value })}>
+                <option value="ALLOW">ALLOW</option>
+                <option value="DENY">DENY</option>
+                <option value="APPROVAL_REQUIRED">APPROVAL_REQUIRED</option>
+              </select>
+            </div>
+            <button className="btn" onClick={save}>Save policy</button>
+          </div>
+        </div>
       </div>
     </>
   );

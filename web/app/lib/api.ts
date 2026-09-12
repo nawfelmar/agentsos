@@ -5,6 +5,21 @@ export function getToken(): string | null {
   return localStorage.getItem("agentos_token");
 }
 
+export function getOrg(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("agentos_org");
+}
+
+export function setSession(token: string, org?: string) {
+  localStorage.setItem("agentos_token", token);
+  if (org) localStorage.setItem("agentos_org", org);
+}
+
+export function clearSession() {
+  localStorage.removeItem("agentos_token");
+  localStorage.removeItem("agentos_org");
+}
+
 export async function api<T = any>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -14,9 +29,20 @@ export async function api<T = any>(path: string, init: RequestInit = {}): Promis
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`${API}/api/v1${path}`, { ...init, headers });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || res.statusText);
+    let detail = res.statusText;
+    try {
+      const body = await res.json();
+      detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail || body);
+    } catch {
+      try {
+        detail = await res.text();
+      } catch {
+        /* ignore */
+      }
+    }
+    throw new Error(detail || res.statusText);
   }
+  if (res.status === 204) return undefined as T;
   return res.json();
 }
 
