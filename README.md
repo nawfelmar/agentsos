@@ -71,7 +71,7 @@ Open http://localhost:3000 after `cd web && npm install && npm run build && npm 
 | Surface | Purpose |
 |---------|---------|
 | Overview | Control room — KPIs, pending approvals, recent runs/evals |
-| Registry | Register agents, versions, environments |
+| Registry | Register BYO agents (JSON contract), versions, environments |
 | Agent detail | Deploy, rollback, start governed run |
 | **Agent live view** (`/runs/[id]`) | Watch — CCTV timeline, badge checks, inline approvals, cost, stop |
 | Runs | Fleet run list → opens live view |
