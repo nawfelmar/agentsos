@@ -17,7 +17,7 @@ export default function RunsPage() {
     <>
       <PageHeader
         title="Runs"
-        lede="Observable executions across the fleet. Timelines show tool gates, approvals, and outcomes — not fake chain-of-thought."
+        lede="Open any run for the agent live view — forensic timeline, permissions, approvals, and cost. Not a chatbot."
       />
       {error ? <div className="error-banner">{error}</div> : null}
       <div className="panel">

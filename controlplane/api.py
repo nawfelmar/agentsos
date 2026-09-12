@@ -791,6 +791,41 @@ def resume_run(
     return {"id": run.id, "status": run.status, "approval_id": approval.id}
 
 
+@router.post("/runs/{run_id}/stop")
+def stop_run(
+    run_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Operator kill-switch: stop a live agent run and reject open approvals."""
+    run = db.get(Run, run_id)
+    if not run or run.organization_id != user.organization_id:
+        raise HTTPException(404, "Run not found")
+    if run.status in {"succeeded", "failed", "stopped"}:
+        raise HTTPException(400, f"Run already terminal: {run.status}")
+
+    pending = db.query(Approval).filter_by(run_id=run.id, status="pending").all()
+    for approval in pending:
+        approval.status = "rejected"
+        approval.decided_by = user.email
+        approval.decided_at = datetime.utcnow()
+
+    run.status = "stopped"
+    run.error = f"Stopped by {user.email}"
+    run.finished_at = datetime.utcnow()
+    db.add(
+        RunEvent(
+            run_id=run.id,
+            type="agent.stopped",
+            status="stopped",
+            metadata_json={"stopped_by": user.email, "rejected_approvals": len(pending)},
+        )
+    )
+    _audit(db, user.organization_id, user.email, "run.stop", "run", run.id, {"rejected_approvals": len(pending)})
+    db.commit()
+    return {"id": run.id, "status": run.status, "rejected_approvals": len(pending)}
+
+
 # ── Evaluations ─────────────────────────────────────────────────────────────
 
 
