@@ -951,14 +951,18 @@ def list_evaluations(
 
 
 @router.get("/audit")
-def list_audit(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> list[dict[str, Any]]:
-    events = (
-        db.query(AuditEvent)
-        .filter_by(organization_id=user.organization_id)
-        .order_by(AuditEvent.timestamp.desc())
-        .limit(100)
-        .all()
-    )
+def list_audit(
+    action: str | None = None,
+    actor: str | None = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    q = db.query(AuditEvent).filter_by(organization_id=user.organization_id)
+    if action:
+        q = q.filter(AuditEvent.action == action)
+    if actor:
+        q = q.filter(AuditEvent.actor == actor)
+    events = q.order_by(AuditEvent.timestamp.desc()).limit(200).all()
     return [
         {
             "id": e.id,
