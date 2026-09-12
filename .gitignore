@@ -17,3 +17,4 @@ examples/demo-repo/.agentos/
 .env
 *.log
 web/tsconfig.tsbuildinfo
+agentsos/
