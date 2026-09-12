@@ -1,0 +1,15 @@
+name: requirements-agent
+version: "0.1.0"
+description: "TEMPLATE — Requirement → implementation → coverage (example only)"
+runtime:
+  type: process
+model:
+  provider: customer-managed
+  model: stub
+capabilities:
+  - jira.read
+  - confluence.read
+  - git.read
+labels:
+  vertical: automotive
+  template: "true"

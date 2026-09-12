@@ -1,0 +1,25 @@
+name: coding-agent
+version: "1.0.0"
+description: Reference CodingAgent — Jira investigate → repo change under policy
+runtime:
+  type: process
+  command:
+    - python
+    - examples/coding-agent/agent.py
+model:
+  provider: customer-managed
+  model: stub
+capabilities:
+  - jira.read
+  - git.read
+  - git.write
+policies:
+  require_approval:
+    - git.write
+resources:
+  cpu: 1
+  memory: 512Mi
+entrypoint: examples/coding-agent/agent.py
+labels:
+  vertical: automotive
+  example: "true"

@@ -1,0 +1,15 @@
+name: release-risk-agent
+version: "0.1.0"
+description: "TEMPLATE — Commits + defects + tests → release risk (example only)"
+runtime:
+  type: process
+model:
+  provider: customer-managed
+  model: stub
+capabilities:
+  - git.read
+  - jira.read
+  - jenkins.read
+labels:
+  vertical: automotive
+  template: "true"

@@ -1,0 +1,15 @@
+name: test-investigator
+version: "0.1.0"
+description: "TEMPLATE — Failed test → logs → commits → root cause (example only)"
+runtime:
+  type: process
+model:
+  provider: customer-managed
+  model: stub
+capabilities:
+  - jenkins.read
+  - git.read
+  - jira.read
+labels:
+  vertical: automotive
+  template: "true"
