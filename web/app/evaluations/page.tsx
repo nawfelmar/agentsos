@@ -1,8 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { EmptyState, PageHeader, StatusBadge, formatTime } from "../components/ui";
+
+function isRegressionFail(value: unknown) {
+  const s = String(value || "").toLowerCase();
+  return s.includes("fail") || s.includes("worse") || s.includes("regress");
+}
 
 export default function EvaluationsPage() {
   const [evals, setEvals] = useState<any[]>([]);
@@ -34,7 +40,12 @@ export default function EvaluationsPage() {
       };
       if (form.baseline_version) body.baseline_version = form.baseline_version;
       const res = await api("/evaluations", { method: "POST", body: JSON.stringify(body) });
-      setMsg(`Score ${res.score}% · regression ${res.regression}`);
+      const failed = isRegressionFail(res.regression);
+      setMsg(
+        failed
+          ? `Score ${res.score}% · regression ${res.regression} — open the agent and roll back to the baseline.`
+          : `Score ${res.score}% · regression ${res.regression}`,
+      );
       await refresh();
     } catch (e: any) {
       setError(e.message);
@@ -63,21 +74,31 @@ export default function EvaluationsPage() {
                   <th>Score</th>
                   <th>Regression</th>
                   <th>When</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {evals.map((e) => (
                   <tr key={e.id}>
-                    <td>{e.agent}</td>
+                    <td>
+                      <Link href={`/agents/${encodeURIComponent(e.agent)}`}>{e.agent}</Link>
+                    </td>
                     <td><span className="badge">{e.version}</span></td>
                     <td>{e.suite}</td>
                     <td>{e.score}%</td>
                     <td><StatusBadge status={e.regression} /></td>
                     <td className="mono">{formatTime(e.created_at)}</td>
+                    <td>
+                      {isRegressionFail(e.regression) ? (
+                        <Link className="btn secondary sm" href={`/agents/${encodeURIComponent(e.agent)}`}>
+                          Roll back
+                        </Link>
+                      ) : null}
+                    </td>
                   </tr>
                 ))}
                 {!evals.length ? (
-                  <tr><td colSpan={6}><EmptyState title="No evaluations yet" body="Run a suite against recorded run evidence." /></td></tr>
+                  <tr><td colSpan={7}><EmptyState title="No evaluations yet" body="Run a suite against recorded run evidence." /></td></tr>
                 ) : null}
               </tbody>
             </table>
