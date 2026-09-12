@@ -42,6 +42,29 @@ export default function AuditPage() {
     });
   }, [events, actionFilter, q]);
 
+  function exportCsv() {
+    const header = ["timestamp", "actor", "action", "target_type", "target_id", "details"];
+    const lines = [header.join(",")];
+    for (const e of filtered) {
+      const row = [
+        e.timestamp,
+        e.actor,
+        e.action,
+        e.target_type,
+        e.target_id,
+        JSON.stringify(e.details || {}),
+      ].map((v) => `"${String(v ?? "").replaceAll('"', '""')}"`);
+      lines.push(row.join(","));
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `agentos-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <>
       <PageHeader
@@ -60,6 +83,9 @@ export default function AuditPage() {
                 <option key={a} value={a}>{a === "all" ? "All actions" : a}</option>
               ))}
             </select>
+            <button type="button" className="btn secondary sm" onClick={exportCsv} disabled={!filtered.length}>
+              Export CSV
+            </button>
           </div>
         }
       />

@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { EffectBadge, EmptyState, PageHeader } from "../components/ui";
 
 export default function PoliciesPage() {
   const [policies, setPolicies] = useState<any[]>([]);
+  const [agents, setAgents] = useState<any[]>([]);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
     agent_name: "coding-agent",
@@ -21,6 +23,14 @@ export default function PoliciesPage() {
 
   useEffect(() => {
     refresh().catch((e) => setError(String(e.message || e)));
+    api("/agents")
+      .then((list: any[]) => {
+        setAgents(list);
+        if (list.length && !list.some((a) => a.name === form.agent_name)) {
+          setForm((f) => ({ ...f, agent_name: list[0].name }));
+        }
+      })
+      .catch(() => setAgents([]));
   }, []);
 
   async function save() {
@@ -28,7 +38,7 @@ export default function PoliciesPage() {
     setError("");
     try {
       await api("/policies", { method: "PUT", body: JSON.stringify(form) });
-      setMsg(`Updated ${form.resource} → ${form.effect}`);
+      setMsg(`Updated ${form.agent_name} · ${form.resource} → ${form.effect}`);
       await refresh();
     } catch (e: any) {
       setError(e.message);
@@ -60,7 +70,9 @@ export default function PoliciesPage() {
               <tbody>
                 {policies.map((p) => (
                   <tr key={p.id}>
-                    <td>{p.agent_name}</td>
+                    <td>
+                      <Link href={`/agents/${encodeURIComponent(p.agent_name)}`}>{p.agent_name}</Link>
+                    </td>
                     <td>{p.environment}</td>
                     <td><span className="badge">{p.resource}</span></td>
                     <td><EffectBadge effect={p.effect} /></td>
@@ -79,7 +91,15 @@ export default function PoliciesPage() {
           <div className="panel-bd">
             <div className="field">
               <label>Agent</label>
-              <input value={form.agent_name} onChange={(e) => setForm({ ...form, agent_name: e.target.value })} />
+              {agents.length ? (
+                <select value={form.agent_name} onChange={(e) => setForm({ ...form, agent_name: e.target.value })}>
+                  {agents.map((a) => (
+                    <option key={a.name} value={a.name}>{a.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <input value={form.agent_name} onChange={(e) => setForm({ ...form, agent_name: e.target.value })} />
+              )}
             </div>
             <div className="field">
               <label>Environment</label>

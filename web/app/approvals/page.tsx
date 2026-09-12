@@ -14,12 +14,24 @@ export default function ApprovalsPage() {
 
   async function refresh(nextFilter = filter) {
     const path = nextFilter === "pending" ? "/approvals?status_filter=pending" : "/approvals";
-    const data = await api(path);
-    setItems(data);
+    setItems(await api(path));
   }
 
   useEffect(() => {
-    refresh().catch((e) => setError(String(e.message || e)));
+    let cancelled = false;
+    async function tick() {
+      try {
+        if (!cancelled) await refresh();
+      } catch (e: any) {
+        if (!cancelled) setError(String(e.message || e));
+      }
+    }
+    tick();
+    const id = setInterval(tick, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, [filter]);
 
   async function decide(id: string, decision: "approve" | "reject", runId: string) {
@@ -60,7 +72,14 @@ export default function ApprovalsPage() {
       {error ? <div className="error-banner">{error}</div> : null}
 
       {!items.length ? (
-        <div className="panel"><div className="panel-bd"><EmptyState title={filter === "pending" ? "No pending approvals" : "No approvals yet"} body="Risky tool calls will appear here when policy requires human authorization." /></div></div>
+        <div className="panel">
+          <div className="panel-bd">
+            <EmptyState
+              title={filter === "pending" ? "No pending approvals" : "No approvals yet"}
+              body="Risky tool calls will appear here when policy requires human authorization."
+            />
+          </div>
+        </div>
       ) : (
         items.map((a) => (
           <div className="approval-card" key={a.id}>
@@ -70,10 +89,20 @@ export default function ApprovalsPage() {
                   {a.action} · {a.resource}
                 </h3>
                 <div className="event-meta">
-                  Agent <span className="badge accent">{a.agent_name}</span> · Risk <StatusBadge status={a.risk} /> · <StatusBadge status={a.status} /> · {formatTime(a.created_at)}
+                  Agent <span className="badge accent">{a.agent_name}</span> · Risk <StatusBadge status={a.risk} /> ·{" "}
+                  <StatusBadge status={a.status} /> · {formatTime(a.created_at)}
+                  {a.decided_by ? (
+                    <>
+                      {" "}
+                      · Decided by <strong>{a.decided_by}</strong>
+                      {a.decided_at ? <> at {formatTime(a.decided_at)}</> : null}
+                    </>
+                  ) : null}
                 </div>
               </div>
-              <Link className="btn secondary sm" href={`/runs/${a.run_id}`}>View run</Link>
+              <Link className="btn secondary sm" href={`/runs/${a.run_id}`}>
+                View run
+              </Link>
             </div>
             <p style={{ margin: "0.85rem 0", color: "var(--ink-2)" }}>{a.reason}</p>
             <pre className="pre">{JSON.stringify(a.args || {}, null, 2)}</pre>

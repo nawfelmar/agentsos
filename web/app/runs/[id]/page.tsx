@@ -190,8 +190,6 @@ export default function AgentLiveViewPage() {
 
   const cost = Number(run?.cost_estimate ?? 0);
   const tokens = Number(run?.token_usage ?? 0);
-  const gpuCost = Number((cost * 0.22).toFixed(2));
-  const modelCost = Number(Math.max(0, cost - gpuCost).toFixed(2));
   const live = isLiveStatus(run?.status);
 
   const permRows = useMemo(() => {
@@ -396,20 +394,20 @@ export default function AgentLiveViewPage() {
               <dd className="mono">{tokens.toLocaleString()}</dd>
             </div>
             <div>
-              <dt>Model cost</dt>
-              <dd className="mono">€{modelCost.toFixed(2)}</dd>
+              <dt>Estimated cost</dt>
+              <dd className="mono">€{cost.toFixed(2)}</dd>
             </div>
             <div>
-              <dt>GPU runtime</dt>
-              <dd className="mono">€{gpuCost.toFixed(2)}</dd>
+              <dt>Source</dt>
+              <dd>Run cost_estimate</dd>
             </div>
             <div className="total">
               <dt>Total</dt>
               <dd className="mono">€{cost.toFixed(2)}</dd>
             </div>
             <div>
-              <dt>Avg / run</dt>
-              <dd className="mono">€{cost.toFixed(2)}</dd>
+              <dt>Billing note</dt>
+              <dd>Metadata estimate — not metered GPU split</dd>
             </div>
           </dl>
         </div>

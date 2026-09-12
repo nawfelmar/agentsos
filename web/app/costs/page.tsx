@@ -80,7 +80,7 @@ export default function CostsPage() {
                       </div>
                       <span className="event-meta">{share.toFixed(0)}%</span>
                     </td>
-                    <td><Link href="/runs">Runs</Link></td>
+                    <td><Link href={`/runs?agent=${encodeURIComponent(r.agent)}`}>Runs</Link></td>
                   </tr>
                 );
               })}

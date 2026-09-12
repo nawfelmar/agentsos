@@ -437,12 +437,15 @@ def create_run(
 @router.get("/runs")
 def list_runs(
     agent: str | None = None,
+    status: str | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[dict[str, Any]]:
     q = db.query(Run).filter_by(organization_id=user.organization_id).order_by(Run.created_at.desc())
     if agent:
         q = q.filter_by(agent_name=agent)
+    if status:
+        q = q.filter_by(status=status)
     return [
         {
             "id": r.id,
@@ -720,6 +723,8 @@ def list_approvals(
             "reason": a.reason,
             "args": a.args,
             "status": a.status,
+            "decided_by": a.decided_by,
+            "decided_at": a.decided_at.isoformat() if a.decided_at else None,
             "created_at": a.created_at.isoformat(),
         }
         for a in q.limit(50).all()
@@ -944,6 +949,7 @@ def list_evaluations(
             "version": e.version,
             "score": e.score,
             "regression": e.regression,
+            "case_results": e.case_results or [],
             "created_at": e.created_at.isoformat(),
         }
         for e in q.limit(50).all()
