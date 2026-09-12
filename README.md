@@ -1,10 +1,25 @@
 # AgentOS
 
-Open-source **control plane** for enterprise AI agents.
+**Bring your AI agents. AgentOS lets you run them safely, see what they did, and control what they’re allowed to touch.**
 
-> Bring your agents. Run them under our control plane.
+AgentOS is a **security desk + control room** for AI agents — not an agent framework and not a chatbot.
 
-AgentOS is **not** an agent framework. It is infrastructure for registering, deploying, authorizing, observing, evaluating, and rolling back heterogeneous agents on private execution planes.
+Companies run many AI helpers (coding bots, ticket investigators, release checkers). Those bots need Git, Jira, and internal systems. That’s risky if they can do anything they want.
+
+AgentOS doesn’t build the smart bots. **It governs them.**
+
+| Step | What it means |
+|------|----------------|
+| **1. Register** | “Here’s agent X, version 1.0” |
+| **2. Set rules** | e.g. read Jira/Git freely; writing to Git needs a human OK |
+| **3. Run privately** | Agent works on *your* machines/data — not dumped into a random SaaS |
+| **4. Watch** | Every action logged: started, asked for a tool, blocked, approved, finished |
+| **5. Approve risky moves** | Human clicks approve/reject before a write happens |
+| **6. Test & roll back** | Score a new version; if it’s worse, go back to the old one |
+
+### Simple analogy
+
+If AI agents are employees, AgentOS is **HR + security badge system + CCTV + change-management** — not the employee’s brain.
 
 See [docs/ARCHITECTURE_ASSESSMENT.md](docs/ARCHITECTURE_ASSESSMENT.md) and [docs/SECURITY.md](docs/SECURITY.md).
 
@@ -37,7 +52,7 @@ python scripts/demo_mvp.py
 
 # Optional UI
 cd web && npm install && npm run dev
-# http://localhost:3000 — register org acme-auto / admin@acme.local / agentos-demo
+# http://localhost:3000 — org acme-auto / admin@acme.local / agentos-demo
 ```
 
 CLI (same venv, `PYTHONPATH` set):
@@ -55,24 +70,22 @@ Open http://localhost:3000 after `cd web && npm install && npm run build && npm 
 
 | Surface | Purpose |
 |---------|---------|
-| Overview | Fleet KPIs, pending approvals, recent runs/evals |
-| Registry | Agent inventory, versions, environments |
+| Overview | Control room — KPIs, pending approvals, recent runs/evals |
+| Registry | Register agents, versions, environments |
 | Agent detail | Deploy, rollback, start governed run |
-| **Agent live view** (`/runs/[id]`) | Default operator console — Datadog/GHA-style forensic timeline, permissions, inline approvals, cost, stop |
+| **Agent live view** (`/runs/[id]`) | Watch — CCTV timeline, badge checks, inline approvals, cost, stop |
 | Runs | Fleet run list → opens live view |
-| Approvals | Human gates for high-risk tool actions |
-| Policies | ALLOW / DENY / APPROVAL_REQUIRED rules |
-| Evaluations | Version scores and regression |
-| Audit | Control-plane action history |
+| Approvals | Human OK before risky writes |
+| Policies | Badge rules: ALLOW / DENY / APPROVAL_REQUIRED |
+| Evaluations | Test & roll back |
+| Audit | CCTV for the control plane |
 | Costs | Per-agent run economics |
 
 Login demo: org `acme-auto` · `admin@acme.local` · `agentos-demo`
 
-The live view is the product centerpiece: every meaningful tool/policy/approval event is an immutable row you can open for evidence — not a chatbot transcript.
-
 ## What we own
 
-Lifecycle: **Register → Identify → Configure → Authorize → Test → Deploy → Run → Observe → Evaluate → Audit → Roll back**
+Lifecycle: **Register → Set rules → Run privately → Watch → Approve → Test & roll back**
 
 What we do **not** own: agent internal reasoning or orchestration.
 

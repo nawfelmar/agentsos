@@ -41,16 +41,16 @@ export default function LoginPage() {
         <div>
           <h1>AgentOS</h1>
           <p className="pitch">
-            The control plane for enterprise AI agents — bring your agents, keep data private, govern every tool call.
+            Bring your AI agents. Run them safely, see what they did, and control what they’re allowed to touch.
           </p>
           <ul>
-            <li>Register and version heterogeneous agents like deployable software</li>
-            <li>Enforce ALLOW / DENY / APPROVAL_REQUIRED at the tool boundary</li>
-            <li>Observe runs, evaluate versions, and roll back with audit evidence</li>
+            <li>Register agents · set badge rules · run on your infra</li>
+            <li>Watch every tool call · approve risky writes before they land</li>
+            <li>Score new versions · roll back when they’re worse</li>
           </ul>
         </div>
         <div className="mono" style={{ opacity: 0.7 }}>
-          Control plane ≠ execution plane
+          Security desk + control room — not the agent’s brain
         </div>
       </section>
       <section className="login-panel">
@@ -62,7 +62,7 @@ export default function LoginPage() {
           }}
         >
           <h2>Sign in</h2>
-          <p className="sub">Access your organization’s agent fleet governance console.</p>
+          <p className="sub">Sign in to the security desk for your AI agent fleet.</p>
           {error ? <div className="error-banner">{error}</div> : null}
           <div className="field">
             <label>Organization</label>

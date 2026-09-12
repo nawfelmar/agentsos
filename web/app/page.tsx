@@ -38,8 +38,8 @@ export default function OverviewPage() {
   return (
     <>
       <PageHeader
-        title="Fleet overview"
-        lede="Govern heterogeneous agents across private execution planes — registry, policy, approvals, evaluation, and rollback in one control plane."
+        title="Control room"
+        lede="If agents are employees, this is HR + security badges + CCTV + change management — register, gate tools, watch every action, approve risky writes, test and roll back."
         actions={
           <>
             <Link className="btn secondary" href="/registry">Open registry</Link>

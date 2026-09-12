@@ -333,7 +333,7 @@ export default function AgentLiveViewPage() {
         <div className="live-card-hd">
           <div>
             <h2>Live activity</h2>
-            <p>Immutable forensic events — not chatbot tokens.</p>
+            <p>CCTV for the agent — immutable events, not chatbot tokens.</p>
           </div>
           <div className="live-filters">
             {(

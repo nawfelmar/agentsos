@@ -39,7 +39,7 @@ export default function PoliciesPage() {
     <>
       <PageHeader
         title="Policies"
-        lede="Least privilege by default. Tool access is ALLOW, DENY, or APPROVAL_REQUIRED at the execution boundary."
+        lede="Badge rules for agents — ALLOW, DENY, or APPROVAL_REQUIRED at the tool boundary. Least privilege by default."
       />
       {msg ? <div className="success-banner">{msg}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}

@@ -44,7 +44,7 @@ export default function ApprovalsPage() {
     <>
       <PageHeader
         title="Approvals"
-        lede="Human gates for high-risk tool actions. Decisions are recorded in the immutable audit trail."
+        lede="Approve or reject risky moves before they land — human OK required for gated writes. Every decision is audited."
         actions={
           <div className="seg">
             <button type="button" className={filter === "pending" ? "on" : ""} onClick={() => setFilter("pending")}>

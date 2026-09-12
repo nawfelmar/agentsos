@@ -18,7 +18,7 @@ export default function AuditPage() {
     <>
       <PageHeader
         title="Audit log"
-        lede="Immutable-ish control-plane actions: register, deploy, policy changes, approvals, evaluations, and rollbacks."
+        lede="CCTV for the control plane — register, deploy, policy changes, approvals, evaluations, and rollbacks."
       />
       {error ? <div className="error-banner">{error}</div> : null}
       <div className="panel">

@@ -82,7 +82,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <aside className="sidebar">
             <div className="brand-block">
               <p className="brand">AgentOS</p>
-              <p className="brand-sub">Enterprise agent control plane</p>
+              <p className="brand-sub">Security desk for AI agents</p>
             </div>
             {NAV.map((group) => (
               <div key={group.section}>
@@ -118,7 +118,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </aside>
           <div className="workspace">
             <header className="topbar">
-              <div className="topbar-title">Control plane · private execution · policy-enforced tools</div>
+              <div className="topbar-title">Control room · private execution · badge-gated tools · CCTV timeline</div>
               <div className="topbar-actions">
                 <Link className="btn secondary sm" href="/approvals">
                   Approvals{pendingApprovals ? ` (${pendingApprovals})` : ""}

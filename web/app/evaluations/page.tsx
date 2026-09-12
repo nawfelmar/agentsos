@@ -45,7 +45,7 @@ export default function EvaluationsPage() {
     <>
       <PageHeader
         title="Evaluations"
-        lede="Framework-agnostic regression evidence across agent versions — promote only what proves out."
+        lede="Test & roll back — score a new version; if it’s worse, go back to the old one."
       />
       {msg ? <div className="success-banner">{msg}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}

@@ -19,7 +19,7 @@ export default function RegistryPage() {
     <>
       <PageHeader
         title="Agent registry"
-        lede="Container-registry style inventory of versions, environments, and promotions — framework-agnostic."
+        lede="Register agents like container images — versions, environments, and promotions. Framework-agnostic; AgentOS is not the brain."
       />
       {error ? <div className="error-banner">{error}</div> : null}
       <div className="panel">
