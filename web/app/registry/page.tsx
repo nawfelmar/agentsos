@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { EmptyState, PageHeader, StatusBadge } from "../components/ui";
+import { EmptyState, PageHeader } from "../components/ui";
 
 export default function RegistryPage() {
   const [agents, setAgents] = useState<any[]>([]);

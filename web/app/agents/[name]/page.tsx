@@ -89,6 +89,33 @@ export default function AgentDetailPage() {
       {msg ? <div className="success-banner">{msg}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}
 
+      {(() => {
+        const latest = data?.versions?.[0];
+        const caps: string[] = latest?.contract?.capabilities || [];
+        const runtime = latest?.contract?.runtime?.type;
+        const model = latest?.contract?.model;
+        return (
+          <div className="panel" style={{ marginBottom: "1rem" }}>
+            <div className="panel-hd">
+              <h2>Contract surface</h2>
+              <span className="badge accent">{latest?.version || "—"}</span>
+            </div>
+            <div className="panel-bd">
+              <div className="event-meta" style={{ marginBottom: "0.75rem" }}>
+                Runtime <strong>{runtime || "—"}</strong>
+                {model ? <> · Model {model.provider}/{model.model}</> : null}
+              </div>
+              <ul className="cap-list">
+                {caps.map((c) => (
+                  <li key={c}><span className="badge">{c}</span></li>
+                ))}
+                {!caps.length ? <li className="event-meta">No capabilities declared</li> : null}
+              </ul>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="grid-2">
         <div className="panel">
           <div className="panel-hd"><h2>Versions</h2></div>

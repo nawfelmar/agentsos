@@ -7,18 +7,20 @@ import { EmptyState, PageHeader, StatusBadge, formatTime } from "../components/u
 
 export default function ApprovalsPage() {
   const [items, setItems] = useState<any[]>([]);
+  const [filter, setFilter] = useState<"pending" | "all">("pending");
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
-  async function refresh() {
-    const data = await api("/approvals?status_filter=pending");
+  async function refresh(nextFilter = filter) {
+    const path = nextFilter === "pending" ? "/approvals?status_filter=pending" : "/approvals";
+    const data = await api(path);
     setItems(data);
   }
 
   useEffect(() => {
     refresh().catch((e) => setError(String(e.message || e)));
-  }, []);
+  }, [filter]);
 
   async function decide(id: string, decision: "approve" | "reject", runId: string) {
     setBusy(id);
@@ -43,12 +45,22 @@ export default function ApprovalsPage() {
       <PageHeader
         title="Approvals"
         lede="Human gates for high-risk tool actions. Decisions are recorded in the immutable audit trail."
+        actions={
+          <div className="seg">
+            <button type="button" className={filter === "pending" ? "on" : ""} onClick={() => setFilter("pending")}>
+              Pending
+            </button>
+            <button type="button" className={filter === "all" ? "on" : ""} onClick={() => setFilter("all")}>
+              All
+            </button>
+          </div>
+        }
       />
       {msg ? <div className="success-banner">{msg}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}
 
       {!items.length ? (
-        <div className="panel"><div className="panel-bd"><EmptyState title="No pending approvals" body="Risky tool calls will appear here when policy requires human authorization." /></div></div>
+        <div className="panel"><div className="panel-bd"><EmptyState title={filter === "pending" ? "No pending approvals" : "No approvals yet"} body="Risky tool calls will appear here when policy requires human authorization." /></div></div>
       ) : (
         items.map((a) => (
           <div className="approval-card" key={a.id}>
@@ -58,21 +70,23 @@ export default function ApprovalsPage() {
                   {a.action} · {a.resource}
                 </h3>
                 <div className="event-meta">
-                  Agent <span className="badge accent">{a.agent_name}</span> · Risk <StatusBadge status={a.risk} /> · {formatTime(a.created_at)}
+                  Agent <span className="badge accent">{a.agent_name}</span> · Risk <StatusBadge status={a.risk} /> · <StatusBadge status={a.status} /> · {formatTime(a.created_at)}
                 </div>
               </div>
               <Link className="btn secondary sm" href={`/runs/${a.run_id}`}>View run</Link>
             </div>
             <p style={{ margin: "0.85rem 0", color: "var(--ink-2)" }}>{a.reason}</p>
             <pre className="pre">{JSON.stringify(a.args || {}, null, 2)}</pre>
-            <div className="split-actions">
-              <button className="btn" disabled={busy === a.id} onClick={() => decide(a.id, "approve", a.run_id)}>
-                Approve
-              </button>
-              <button className="btn secondary" disabled={busy === a.id} onClick={() => decide(a.id, "reject", a.run_id)}>
-                Reject
-              </button>
-            </div>
+            {a.status === "pending" ? (
+              <div className="split-actions">
+                <button className="btn" disabled={busy === a.id} onClick={() => decide(a.id, "approve", a.run_id)}>
+                  Approve
+                </button>
+                <button className="btn secondary" disabled={busy === a.id} onClick={() => decide(a.id, "reject", a.run_id)}>
+                  Reject
+                </button>
+              </div>
+            ) : null}
           </div>
         ))
       )}
