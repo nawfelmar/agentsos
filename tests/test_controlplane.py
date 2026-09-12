@@ -231,3 +231,9 @@ def test_deploy_rollback_and_eval(client: TestClient, auth: dict):
         json={"agent": "coding-agent", "version": "1.0.0", "suite_name": "default"},
     ).json()
     assert ev["score"] >= 75.0
+
+    audit = client.get("/api/v1/audit", headers=auth).json()
+    assert any(e["action"] == "agent.register" for e in audit)
+    filtered = client.get("/api/v1/audit?action=agent.register", headers=auth).json()
+    assert filtered and all(e["action"] == "agent.register" for e in filtered)
+    assert client.get("/api/v1/costs", headers=auth).status_code == 200
