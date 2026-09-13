@@ -21,6 +21,7 @@ from controlplane.models import (
     AgentVersion,
     Approval,
     AuditEvent,
+    CapabilityGrant,
     Deployment,
     Evaluation,
     Organization,
@@ -30,6 +31,14 @@ from controlplane.models import (
     User,
 )
 from controlplane.policy import evaluate_policy, seed_demo_policies
+from controlplane.enforcement import (
+    FORGED_EXECUTION_EVENT_TYPES,
+    TERMINAL_RUN_STATUSES,
+    PermitError,
+    canonical_resource,
+    consume_capability_token,
+    mint_capability_permit,
+)
 from controlplane.schemas import (
     ApprovalDecision,
     CreateRunRequest,
@@ -44,6 +53,7 @@ from controlplane.schemas import (
     TokenResponse,
     ToolGateRequest,
     ToolGateResponse,
+    ToolResultRequest,
 )
 from protocol import AgentContract, PolicyEffect
 
@@ -548,16 +558,153 @@ def tool_gate(
     _: bool = Depends(require_runner),
     db: Session = Depends(get_db),
 ) -> ToolGateResponse:
+    """External policy enforcement. Agents request; AgentOS decides and issues permits.
+
+    Resource strings from the agent are never authoritative — the control plane
+    derives the canonical resource from tool+action. Stopped runs cannot obtain
+    permits. DENY attempts are audited as policy violations.
+    """
     run = db.get(Run, body.run_id)
     if not run:
         raise HTTPException(404, "Run not found")
+
+    resource = canonical_resource(body.tool, body.action)
+    spoofed = body.resource is not None and body.resource != resource
+
+    if run.status in TERMINAL_RUN_STATUSES or run.status == "stopped":
+        decision = evaluate_policy(
+            db, run.organization_id, run.agent_name, run.environment, resource
+        )
+        # Force deny for kill-switch / terminal regardless of policy allow
+        from protocol import PolicyDecision
+
+        forced = PolicyDecision(
+            effect=PolicyEffect.DENY,
+            rule=None,
+            reason=f"Run is {run.status}; kill-switch/terminal state blocks tool permits",
+            resource=resource,
+            agent=run.agent_name,
+        )
+        db.add(
+            RunEvent(
+                run_id=run.id,
+                type="policy.evaluated",
+                tool=body.tool,
+                status=PolicyEffect.DENY.value,
+                policy_decision=forced.model_dump(mode="json"),
+                metadata_json={
+                    "action": body.action,
+                    "resource": resource,
+                    "client_resource": body.resource,
+                    "risk": body.risk,
+                    "kill_switch": True,
+                },
+            )
+        )
+        _audit(
+            db,
+            run.organization_id,
+            f"agent:{run.agent_name}",
+            "policy.violation",
+            "run",
+            run.id,
+            {
+                "tool": body.tool,
+                "action": body.action,
+                "resource": resource,
+                "reason": forced.reason,
+                "security_event": "POLICY_VIOLATION",
+                "run_status": run.status,
+            },
+        )
+        db.commit()
+        return ToolGateResponse(
+            effect=PolicyEffect.DENY.value,
+            approval_id=None,
+            decision=forced.model_dump(mode="json"),
+            message=forced.reason,
+            capability_token=None,
+            resource=resource,
+        )
+
+    # Redeem path: prior human approval → single-use capability permit
+    if body.approval_id:
+        approval = db.get(Approval, body.approval_id)
+        if (
+            not approval
+            or approval.run_id != run.id
+            or approval.status != "approved"
+            or approval.tool != body.tool
+            or approval.action != body.action
+        ):
+            raise HTTPException(403, "Approval cannot be redeemed for this action")
+        # Bind approval resource to canonical mapping
+        if approval.resource != resource:
+            raise HTTPException(403, "Approval resource does not match canonical tool/action")
+        _, token = mint_capability_permit(
+            db,
+            run_id=run.id,
+            organization_id=run.organization_id,
+            tool=body.tool,
+            action=body.action,
+            resource=resource,
+            approval_id=approval.id,
+        )
+        if run.status == "waiting_approval":
+            run.status = "running"
+        db.add(
+            RunEvent(
+                run_id=run.id,
+                type="policy.evaluated",
+                tool=body.tool,
+                status=PolicyEffect.ALLOW.value,
+                metadata_json={
+                    "action": body.action,
+                    "resource": resource,
+                    "redeemed_approval": approval.id,
+                },
+                redacted=True,
+            )
+        )
+        db.commit()
+        return ToolGateResponse(
+            effect=PolicyEffect.ALLOW.value,
+            approval_id=approval.id,
+            decision={
+                "effect": PolicyEffect.ALLOW.value,
+                "reason": "Human approval redeemed into capability permit",
+                "resource": resource,
+                "agent": run.agent_name,
+            },
+            message="Allowed via redeemed approval",
+            capability_token=token,
+            resource=resource,
+        )
+
+    if spoofed:
+        _audit(
+            db,
+            run.organization_id,
+            f"agent:{run.agent_name}",
+            "policy.violation",
+            "run",
+            run.id,
+            {
+                "tool": body.tool,
+                "action": body.action,
+                "client_resource": body.resource,
+                "canonical_resource": resource,
+                "reason": "Agent attempted to spoof policy resource",
+                "security_event": "POLICY_VIOLATION",
+            },
+        )
 
     decision = evaluate_policy(
         db,
         run.organization_id,
         run.agent_name,
         run.environment,
-        body.resource,
+        resource,
     )
     db.add(
         RunEvent(
@@ -566,17 +713,50 @@ def tool_gate(
             tool=body.tool,
             status=decision.effect.value,
             policy_decision=decision.model_dump(mode="json"),
-            metadata_json={"action": body.action, "resource": body.resource, "risk": body.risk},
+            metadata_json={
+                "action": body.action,
+                "resource": resource,
+                "client_resource": body.resource,
+                "risk": body.risk,
+                "resource_spoof_attempt": spoofed,
+            },
         )
     )
 
-    if decision.effect == PolicyEffect.DENY:
+    if decision.effect == PolicyEffect.DENY or spoofed:
+        # Spoof attempts are always denied even if a confused policy would allow
+        effect = PolicyEffect.DENY
+        message = (
+            "Denied: agent-supplied resource does not match canonical tool/action mapping"
+            if spoofed
+            else decision.reason
+        )
+        _audit(
+            db,
+            run.organization_id,
+            f"agent:{run.agent_name}",
+            "policy.violation",
+            "run",
+            run.id,
+            {
+                "tool": body.tool,
+                "action": body.action,
+                "resource": resource,
+                "reason": message,
+                "security_event": "POLICY_VIOLATION",
+                "attempted": f"{body.tool}.{body.action}",
+                "policy": effect.value,
+                "action_taken": "BLOCKED",
+            },
+        )
         db.commit()
         return ToolGateResponse(
-            effect=decision.effect.value,
+            effect=effect.value,
             approval_id=None,
             decision=decision.model_dump(mode="json"),
-            message=decision.reason,
+            message=message,
+            capability_token=None,
+            resource=resource,
         )
 
     if decision.effect == PolicyEffect.APPROVAL_REQUIRED:
@@ -586,7 +766,7 @@ def tool_gate(
             agent_name=run.agent_name,
             tool=body.tool,
             action=body.action,
-            resource=body.resource,
+            resource=resource,
             risk=body.risk,
             reason=body.reason,
             args=_redact_args(body.args),
@@ -600,7 +780,7 @@ def tool_gate(
                 type="approval.requested",
                 tool=body.tool,
                 status="pending",
-                metadata_json={"resource": body.resource, "risk": body.risk, "reason": body.reason},
+                metadata_json={"resource": resource, "risk": body.risk, "reason": body.reason},
                 redacted=True,
             )
         )
@@ -611,15 +791,25 @@ def tool_gate(
             approval_id=approval.id,
             decision=decision.model_dump(mode="json"),
             message="Human approval required before tool execution",
+            capability_token=None,
+            resource=resource,
         )
 
+    _, token = mint_capability_permit(
+        db,
+        run_id=run.id,
+        organization_id=run.organization_id,
+        tool=body.tool,
+        action=body.action,
+        resource=resource,
+    )
     db.add(
         RunEvent(
             run_id=run.id,
             type="tool.requested",
             tool=body.tool,
             status="allowed",
-            metadata_json={"action": body.action, "resource": body.resource},
+            metadata_json={"action": body.action, "resource": resource},
             redacted=True,
         )
     )
@@ -629,6 +819,8 @@ def tool_gate(
         approval_id=None,
         decision=decision.model_dump(mode="json"),
         message="Allowed",
+        capability_token=token,
+        resource=resource,
     )
 
 
@@ -642,6 +834,26 @@ def ingest_event(
     run = db.get(Run, run_id)
     if not run:
         raise HTTPException(404, "Run not found")
+    if body.type in FORGED_EXECUTION_EVENT_TYPES:
+        _audit(
+            db,
+            run.organization_id,
+            "runner",
+            "policy.violation",
+            "run",
+            run.id,
+            {
+                "reason": "Runner attempted to forge tool execution event without capability permit",
+                "event_type": body.type,
+                "security_event": "POLICY_VIOLATION",
+                "action_taken": "BLOCKED",
+            },
+        )
+        db.commit()
+        raise HTTPException(
+            403,
+            "tool.executed/returned events require POST /runner/tool-result with a capability permit",
+        )
     db.add(
         RunEvent(
             run_id=run.id,
@@ -658,6 +870,76 @@ def ingest_event(
     return {"status": "ok"}
 
 
+@router.post("/runner/tool-result")
+def tool_result(
+    body: ToolResultRequest,
+    _: bool = Depends(require_runner),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    """Record tool execution only after consuming a control-plane capability permit."""
+    run = db.get(Run, body.run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    if run.status in TERMINAL_RUN_STATUSES:
+        raise HTTPException(403, f"Run is {run.status}; refusing tool-result")
+    try:
+        permit = consume_capability_token(
+            db,
+            body.capability_token,
+            run_id=body.run_id,
+            tool=body.tool,
+            action=body.action,
+        )
+    except PermitError as exc:
+        _audit(
+            db,
+            run.organization_id,
+            f"agent:{run.agent_name}",
+            "policy.violation",
+            "run",
+            run.id,
+            {
+                "reason": str(exc),
+                "tool": body.tool,
+                "action": body.action,
+                "security_event": "POLICY_VIOLATION",
+                "action_taken": "BLOCKED",
+            },
+        )
+        db.commit()
+        raise HTTPException(403, str(exc)) from exc
+
+    db.add(
+        RunEvent(
+            run_id=run.id,
+            type="tool.executed",
+            tool=body.tool,
+            status=body.status,
+            duration_ms=body.duration_ms,
+            metadata_json={
+                **(body.metadata or {}),
+                "action": body.action,
+                "resource": permit.resource,
+                "permit_jti": permit.jti,
+            },
+            redacted=True,
+        )
+    )
+    db.add(
+        RunEvent(
+            run_id=run.id,
+            type="tool.returned",
+            tool=body.tool,
+            status=body.status,
+            duration_ms=body.duration_ms,
+            metadata_json={"action": body.action, "permit_jti": permit.jti},
+            redacted=True,
+        )
+    )
+    db.commit()
+    return {"status": "ok"}
+
+
 @router.post("/runner/runs/{run_id}/complete")
 def complete_run(
     run_id: str,
@@ -668,6 +950,8 @@ def complete_run(
     run = db.get(Run, run_id)
     if not run:
         raise HTTPException(404, "Run not found")
+    if run.status == "stopped":
+        raise HTTPException(403, "Run was stopped by operator; refusing completion overwrite")
     ok = payload.get("ok", True)
     run.status = "succeeded" if ok else "failed"
     run.output = payload.get("output")

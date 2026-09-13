@@ -14,15 +14,55 @@ from typing import Any
 
 import httpx
 
+from controlplane.enforcement import CapabilityPermit, PermitError, verify_capability_token
+
 
 class ConnectorError(Exception):
     pass
 
 
 class BaseConnector:
+    """Connectors are inert without a control-plane capability permit.
+
+    Agents cannot authorize themselves: HMAC-verified permits are issued only
+    after external policy ALLOW (or redeemed approval).
+    """
+
     name: str = "base"
 
-    def execute(self, action: str, args: dict[str, Any]) -> dict[str, Any]:
+    def execute(
+        self,
+        action: str,
+        args: dict[str, Any],
+        *,
+        capability_token: str | None = None,
+    ) -> dict[str, Any]:
+        permit = self._require_permit(capability_token, action)
+        return self._execute(action, args, permit=permit)
+
+    def _require_permit(self, capability_token: str | None, action: str) -> CapabilityPermit:
+        if not capability_token:
+            raise ConnectorError(
+                "Refused: connector execute requires a control-plane capability permit "
+                "(agent is untrusted; policy is enforced outside the model)"
+            )
+        try:
+            permit = verify_capability_token(capability_token)
+        except PermitError as exc:
+            raise ConnectorError(f"Refused: invalid capability permit ({exc})") from exc
+        if permit.tool != self.name:
+            raise ConnectorError("Refused: capability permit tool mismatch")
+        if permit.action != action:
+            raise ConnectorError("Refused: capability permit action mismatch")
+        return permit
+
+    def _execute(
+        self,
+        action: str,
+        args: dict[str, Any],
+        *,
+        permit: CapabilityPermit,
+    ) -> dict[str, Any]:
         raise NotImplementedError
 
 
@@ -42,7 +82,7 @@ class GitConnector(BaseConnector):
             raise ConnectorError("Path escapes workspace root")
         return target
 
-    def execute(self, action: str, args: dict[str, Any]) -> dict[str, Any]:
+    def _execute(self, action: str, args: dict[str, Any], *, permit: CapabilityPermit) -> dict[str, Any]:
         start = time.time()
         if action == "status":
             out = self._git(["status", "--porcelain"])
@@ -113,7 +153,7 @@ class JiraConnector(BaseConnector):
             }
         }
 
-    def execute(self, action: str, args: dict[str, Any]) -> dict[str, Any]:
+    def _execute(self, action: str, args: dict[str, Any], *, permit: CapabilityPermit) -> dict[str, Any]:
         if action == "get_issue":
             key = args["key"]
             if self.base_url and self.token:
@@ -153,7 +193,7 @@ class HttpConnector(BaseConnector):
     def __init__(self, allowed_hosts: list[str] | None = None):
         self.allowed_hosts = set(allowed_hosts or ["localhost", "127.0.0.1"])
 
-    def execute(self, action: str, args: dict[str, Any]) -> dict[str, Any]:
+    def _execute(self, action: str, args: dict[str, Any], *, permit: CapabilityPermit) -> dict[str, Any]:
         if action != "request":
             raise ConnectorError(f"Unsupported http action: {action}")
         url = args["url"]
@@ -180,18 +220,7 @@ class ConnectorRegistry:
         return self._connectors[name]
 
     def resource_for(self, tool: str, action: str) -> str:
-        """Map tool+action to policy resource key."""
-        write_actions = {"write_file", "commit", "push", "delete", "merge"}
-        if tool == "git":
-            if action in write_actions:
-                return "git.write"
-            if action in {"delete_branch", "rm"}:
-                return "git.delete"
-            return "git.read"
-        if tool == "jira":
-            if action in {"create_issue", "update_issue", "transition"}:
-                return "jira.write"
-            return "jira.read"
-        if tool == "http":
-            return "http.request"
-        return f"{tool}.{action}"
+        """Map tool+action to policy resource key (canonical server mapping)."""
+        from controlplane.enforcement import canonical_resource
+
+        return canonical_resource(tool, action)

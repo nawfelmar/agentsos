@@ -39,7 +39,7 @@ export default function OverviewPage() {
     <>
       <PageHeader
         title="Overview"
-        lede="Bring your agents. Run them safely. See what they did. Control what they can touch."
+        lede="Bring your agents. Limit what they can do. See every request. Enforce policy outside the model."
         actions={
           <>
             <Link className="btn secondary" href="/registry">Open registry</Link>

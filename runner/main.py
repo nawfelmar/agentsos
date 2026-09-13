@@ -57,9 +57,19 @@ class ControlPlaneClient:
             r.raise_for_status()
             return r.json()
 
+    def tool_result(self, payload: dict[str, Any]) -> dict[str, Any]:
+        with self._client() as c:
+            r = c.post("/api/v1/runner/tool-result", json=payload)
+            r.raise_for_status()
+            return r.json()
+
 
 class ExecutionGateway:
-    """All tool calls go through policy gate before connector execution."""
+    """All tool calls go through external policy before connector execution.
+
+    The agent only *requests*. AgentOS evaluates policy, issues a capability
+    permit, and connectors refuse to run without that permit.
+    """
 
     def __init__(self, cp: ControlPlaneClient, connectors: ConnectorRegistry, run_id: str):
         self.cp = cp
@@ -71,7 +81,13 @@ class ExecutionGateway:
         resource = self.connectors.resource_for(tool, action)
         self.cp.event(
             self.run_id,
-            {"type": "tool.requested", "tool": tool, "status": "requested", "metadata": {"action": action, "resource": resource}, "redacted": True},
+            {
+                "type": "tool.requested",
+                "tool": tool,
+                "status": "requested",
+                "metadata": {"action": action, "resource": resource},
+                "redacted": True,
+            },
         )
         gate = self.cp.tool_gate(
             {
@@ -88,10 +104,20 @@ class ExecutionGateway:
         if effect == "DENY":
             raise PermissionError(gate["message"])
         if effect == "APPROVAL_REQUIRED":
-            self.pending_approval = {"approval_id": gate["approval_id"], "tool": tool, "action": action, "args": args, "reason": reason, "risk": risk}
+            self.pending_approval = {
+                "approval_id": gate["approval_id"],
+                "tool": tool,
+                "action": action,
+                "args": args,
+                "reason": reason,
+                "risk": risk,
+            }
             raise ApprovalRequired(gate["approval_id"], gate["message"])
 
-        return self._execute(tool, action, args)
+        token = gate.get("capability_token")
+        if not token:
+            raise PermissionError("Control plane ALLOW missing capability permit")
+        return self._execute(tool, action, args, capability_token=token)
 
     def resume_after_approval(self) -> dict[str, Any]:
         assert self.pending_approval
@@ -99,54 +125,72 @@ class ExecutionGateway:
         status = self.cp.approval_status(info["approval_id"])
         if status["status"] != "approved":
             raise PermissionError(f"Approval not granted: {status['status']}")
-        result = self._execute(info["tool"], info["action"], info["args"])
+        # Redeem approval into a fresh capability permit — do not execute on trust alone
+        resource = self.connectors.resource_for(info["tool"], info["action"])
+        gate = self.cp.tool_gate(
+            {
+                "run_id": self.run_id,
+                "tool": info["tool"],
+                "action": info["action"],
+                "resource": resource,
+                "args": info["args"],
+                "risk": info.get("risk", "MEDIUM"),
+                "reason": info.get("reason"),
+                "approval_id": info["approval_id"],
+            }
+        )
+        if gate["effect"] != "ALLOW" or not gate.get("capability_token"):
+            raise PermissionError(gate.get("message") or "Approval redemption failed")
+        result = self._execute(
+            info["tool"], info["action"], info["args"], capability_token=gate["capability_token"]
+        )
         self.pending_approval = None
         return result
 
-    def _execute(self, tool: str, action: str, args: dict[str, Any]) -> dict[str, Any]:
+    def _execute(
+        self,
+        tool: str,
+        action: str,
+        args: dict[str, Any],
+        *,
+        capability_token: str,
+    ) -> dict[str, Any]:
         start = time.time()
         connector = self.connectors.get(tool)
         try:
-            output = connector.execute(action, args)
+            output = connector.execute(action, args, capability_token=capability_token)
             duration = int((time.time() - start) * 1000)
-            self.cp.event(
-                self.run_id,
+            # Record outcome via permit redemption — cannot forge tool.executed via events API
+            self.cp.tool_result(
                 {
-                    "type": "tool.executed",
+                    "run_id": self.run_id,
                     "tool": tool,
-                    "status": "ok",
-                    "duration_ms": duration,
-                    "metadata": {"action": action},
-                    "redacted": True,
-                },
-            )
-            self.cp.event(
-                self.run_id,
-                {
-                    "type": "tool.returned",
-                    "tool": tool,
+                    "action": action,
+                    "capability_token": capability_token,
                     "status": "ok",
                     "duration_ms": duration,
                     "metadata": {"keys": list(output.keys()) if isinstance(output, dict) else []},
-                    "redacted": True,
-                },
+                }
             )
             return output
         except Exception as exc:
             duration = int((time.time() - start) * 1000)
-            self.cp.event(
-                self.run_id,
-                {
-                    "type": "tool.executed",
-                    "tool": tool,
-                    "status": "error",
-                    "duration_ms": duration,
-                    "metadata": {"error": str(exc)},
-                    "redacted": True,
-                },
-            )
+            try:
+                self.cp.tool_result(
+                    {
+                        "run_id": self.run_id,
+                        "tool": tool,
+                        "action": action,
+                        "capability_token": capability_token,
+                        "status": "error",
+                        "duration_ms": duration,
+                        "metadata": {"error": str(exc)},
+                    }
+                )
+            except Exception:
+                # Permit may be unconsumed if connector refused before CP redeem; best-effort
+                pass
             raise
-
 
 class ApprovalRequired(Exception):
     def __init__(self, approval_id: str, message: str):

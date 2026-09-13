@@ -1,6 +1,6 @@
 # AgentOS
 
-**Bring your AI agents. AgentOS lets you run them safely, see what they did, and control what they’re allowed to touch.**
+**Bring your AI agents. AgentOS limits what they can actually do — see every request, enforce policy outside the model, and require approval for risky writes.**
 
 AgentOS is a **security desk + control room** for AI agents — not an agent framework and not a chatbot.
 
@@ -19,7 +19,7 @@ AgentOS doesn’t build the smart bots. **It governs them.**
 
 ### Simple analogy
 
-If AI agents are employees, AgentOS is **HR + security badge system + CCTV + change-management** — not the employee’s brain.
+If AI agents are employees, AgentOS is **HR + security badge system + CCTV + change-management** — not the employee’s brain. It does **not** promise agents will behave; it limits what they can touch when they misbehave, hallucinate, or go malicious.
 
 See [docs/ARCHITECTURE_ASSESSMENT.md](docs/ARCHITECTURE_ASSESSMENT.md) and [docs/SECURITY.md](docs/SECURITY.md).
 

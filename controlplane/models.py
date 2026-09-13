@@ -169,6 +169,24 @@ class Approval(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+
+class CapabilityGrant(Base):
+    """Single-use capability permit issued only after external policy ALLOW/approval."""
+
+    __tablename__ = "capability_grants"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # jti
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), index=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), index=True)
+    tool: Mapped[str] = mapped_column(String(64))
+    action: Mapped[str] = mapped_column(String(64))
+    resource: Mapped[str] = mapped_column(String(128))
+    approval_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class AuditEvent(Base):
     __tablename__ = "audit_events"
 

@@ -80,10 +80,12 @@ class ToolGateRequest(BaseModel):
     run_id: str
     tool: str
     action: str
-    resource: str
+    # Client-supplied resource is ignored for authorization; server derives canonically.
+    resource: str | None = None
     args: dict[str, Any] = Field(default_factory=dict)
     risk: str = "MEDIUM"
     reason: str | None = None
+    approval_id: str | None = None  # redeem prior approval into a capability permit
 
 
 class ToolGateResponse(BaseModel):
@@ -91,6 +93,8 @@ class ToolGateResponse(BaseModel):
     approval_id: str | None = None
     decision: dict[str, Any]
     message: str
+    capability_token: str | None = None  # single-use permit; required before connector execute
+    resource: str | None = None  # server-canonical resource actually evaluated
 
 
 class EvaluateRequest(BaseModel):
@@ -120,3 +124,16 @@ class RunOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ToolResultRequest(BaseModel):
+    """Runner reports tool outcome only by redeeming a capability permit."""
+
+    run_id: str
+    tool: str
+    action: str
+    capability_token: str
+    status: str = "ok"
+    duration_ms: int | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+

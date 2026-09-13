@@ -45,12 +45,12 @@ export default function LoginPage() {
           </p>
           <ul>
             <li>Register agents and deploy versions like images</li>
-            <li>Gate tools with policy; hold risky writes for approval</li>
+            <li>Enforce policy outside the model; hold risky writes for approval</li>
             <li>Audit every call, score builds, roll back when they fail</li>
           </ul>
         </div>
         <div className="mono login-foot">
-          Control plane — not the agent’s brain
+          Control plane — not the agent’s brain. Limits actions; does not trust behavior.
         </div>
       </section>
       <section className="login-panel">
