@@ -38,12 +38,12 @@ export default function OverviewPage() {
   return (
     <>
       <PageHeader
-        title="Mission control"
-        lede="Orbital desk for the agents you already fly — register the fleet, set instrument limits, watch every tool call, clear risky writes, score builds and abort when they drift."
+        title="Overview"
+        lede="Bring your agents. Run them safely. See what they did. Control what they can touch."
         actions={
           <>
             <Link className="btn secondary" href="/registry">Open registry</Link>
-            <Link className="btn" href="/approvals">Review clearances</Link>
+            <Link className="btn" href="/approvals">Review approvals</Link>
           </>
         }
       />

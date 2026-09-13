@@ -41,16 +41,16 @@ export default function LoginPage() {
         <div>
           <h1>AgentOS</h1>
           <p className="pitch">
-            Mission control for AI agents you already own — private runs, badge-gated tools, human approval at the edge.
+            The security desk for agents you already run — on your infra, under your rules.
           </p>
           <ul>
-            <li>Register the fleet · set instrument limits · fly on your infra</li>
-            <li>Flight-record every tool call · hold risky writes for clearance</li>
-            <li>Score new builds · abort and roll back when they drift</li>
+            <li>Register agents and deploy versions like images</li>
+            <li>Gate tools with policy; hold risky writes for approval</li>
+            <li>Audit every call, score builds, roll back when they fail</li>
           </ul>
         </div>
-        <div className="mono" style={{ opacity: 0.7 }}>
-          Orbital security desk — not the agent’s brain
+        <div className="mono login-foot">
+          Control plane — not the agent’s brain
         </div>
       </section>
       <section className="login-panel">
@@ -62,7 +62,7 @@ export default function LoginPage() {
           }}
         >
           <h2>Sign in</h2>
-          <p className="sub">Enter the control plane for your agent fleet.</p>
+          <p className="sub">Access your organization’s control plane.</p>
           {error ? <div className="error-banner">{error}</div> : null}
           <div className="field">
             <label>Organization</label>

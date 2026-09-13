@@ -179,12 +179,13 @@ button { cursor: pointer; }
     radial-gradient(900px 480px at 15% 0%, rgba(226,166,90,.16), transparent 58%),
     radial-gradient(700px 420px at 90% 90%, rgba(126,162,196,.1), transparent 55%),
     linear-gradient(155deg, #05070b 0%, #0a101c 48%, #070b14 100%);
-  color: var(--ink); position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
+  color: var(--ink); position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; gap: 2rem; }
 .login-hero h1, .login-hero h1 { font-family: var(--font-brand); font-size: clamp(3rem,5.4vw,4.5rem); font-weight: 800; letter-spacing: -.045em; margin: 0 0 .8rem; line-height: .98; }
-.pitch { font-size: 1.1rem; max-width: 28ch; line-height: 1.45; color: var(--ink-2); margin: 0; }
-.login-hero ul, .login-hero ul { list-style: none; padding: 0; margin: 2.5rem 0 0; display: grid; gap: .75rem; }
-.login-hero li, .login-hero li { display: flex; gap: .7rem; align-items: flex-start; color: var(--ink-2); font-size: .92rem; }
-.login-hero li, .login-hero li::before { content: ""; width: 8px; height: 8px; margin-top: .4rem; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 3px rgba(226,166,90,.12); border-radius: 1px; transform: rotate(45deg); flex: 0 0 auto; }
+.pitch { font-size: 1.15rem; max-width: 36ch; line-height: 1.5; color: var(--ink-2); margin: 0; }
+.login-hero ul, .login-hero ul { list-style: none; padding: 0; margin: 2rem 0 0; display: grid; gap: .85rem; max-width: 42ch; }
+.login-hero li { display: flex; gap: .75rem; align-items: flex-start; color: var(--ink-2); font-size: .95rem; line-height: 1.45; }
+.login-hero li::before { content: ""; width: 8px; height: 8px; margin-top: .45rem; background: var(--teal); box-shadow: 0 0 0 3px rgba(226,166,90,.12); border-radius: 1px; transform: rotate(45deg); flex: 0 0 auto; }
+.login-foot { opacity: .7; font-size: .82rem; }
 .login-panel { display: grid; place-items: center; padding: 2rem;
   background:
     radial-gradient(600px 320px at 80% 20%, rgba(226,166,90,.05), transparent 60%),
@@ -316,7 +317,7 @@ button { cursor: pointer; }
   .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .grid-2 { grid-template-columns: 1fr; }
   .login-shell, .login-shell { grid-template-columns: 1fr; }
-  .login-hero, .login-hero { min-height: 280px; padding: 2rem; }
+  .login-hero, .login-hero { min-height: unset; padding: 2rem 1.5rem; overflow: visible; }
   .timeline li { grid-template-columns: 1fr; }
   .timeline time { text-align: left; }
   .timeline .rail { display: none; }
