@@ -1,39 +1,35 @@
 # AgentOS
 
-**Bring your AI agents. AgentOS limits what they can actually do — see every request, enforce policy outside the model, and require approval for risky writes.**
+**The security and control layer for autonomous AI.**
 
-AgentOS is a **security desk + control room** for AI agents — not an agent framework and not a chatbot.
+Create agents wherever you want. AgentOS controls what they are actually allowed to do.
 
-Companies run many AI helpers (coding bots, ticket investigators, release checkers). Those bots need Git, Jira, and internal systems. That’s risky if they can do anything they want.
+Your AI can decide what it wants to do. **AgentOS decides whether it is allowed to act.**
 
-AgentOS doesn’t build the smart bots. **It governs them.**
+AgentOS is a framework-agnostic **control plane and security boundary** for heterogeneous agents (coding, test, DevOps, vendor, custom) — not an LLM, chatbot, agent framework, or IDE.
+
+Core value does **not** require an AI supervisor. Deterministic identity, policy, action gateway, credentials, audit, and kill switch stand alone.
 
 | Step | What it means |
 |------|----------------|
-| **1. Register** | “Here’s agent X, version 1.0” |
-| **2. Set rules** | e.g. read Jira/Git freely; writing to Git needs a human OK |
-| **3. Run privately** | Agent works on *your* machines/data — not dumped into a random SaaS |
-| **4. Watch** | Every action logged: started, asked for a tool, blocked, approved, finished |
-| **5. Approve risky moves** | Human clicks approve/reject before a write happens |
-| **6. Test & roll back** | Score a new version; if it’s worse, go back to the old one |
+| **1. Register** | Stable agent identity separate from the underlying model |
+| **2. Capabilities + policy** | Explicit allow/deny/approval — outside the LLM |
+| **3. Action gateway** | Tools run only with short-lived capability permits |
+| **4. Run privately** | Execution stays on customer infra |
+| **5. Observe + audit** | Every request, decision, and containment event |
+| **6. Approve / revoke / kill** | Humans remain the ultimate authority |
 
-### Simple analogy
-
-If AI agents are employees, AgentOS is **HR + security badge system + CCTV + change-management** — not the employee’s brain. It does **not** promise agents will behave; it limits what they can touch when they misbehave, hallucinate, or go malicious.
-
-See [docs/ARCHITECTURE_ASSESSMENT.md](docs/ARCHITECTURE_ASSESSMENT.md) and [docs/SECURITY.md](docs/SECURITY.md).
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Verified MVP demo
 
-The thesis loop has been run successfully in this environment:
-
 1. Register `coding-agent@1.0.0`
-2. Deploy to local execution with policies (`jira.read`/`git.read` ALLOW, `git.write` APPROVAL_REQUIRED)
+2. Deploy with policies (`jira.read`/`git.read` ALLOW, `git.write` APPROVAL_REQUIRED)
 3. Run with Jira ticket `AUTO-42`
 4. Policy blocks write → human approval → write executes
-5. Full observable timeline in control plane
-6. Evaluation score 100%
-7. Deploy v2 → compare regression PASS → rollback to v1
+5. Rogue attempts (e.g. secrets / denied actions) → POLICY DENIED + audit
+6. Operator kill → grants revoked; further execute blocked
+7. Evaluation + deploy/rollback
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
@@ -55,7 +51,7 @@ cd web && npm install && npm run dev
 # http://localhost:3000 — org acme-auto / admin@acme.local / agentos-demo
 ```
 
-CLI (same venv, `PYTHONPATH` set):
+CLI:
 
 ```bash
 python cli/agentctl.py login --organization acme-auto --email admin@acme.local --password agentos-demo --register
@@ -66,28 +62,16 @@ python cli/agentctl.py list
 
 ## Enterprise UI
 
-Open http://localhost:3000 after `cd web && npm install && npm run build && npm run start`.
-
 | Surface | Purpose |
 |---------|---------|
-| Overview | Control room — KPIs, pending approvals, recent runs/evals |
-| Registry | Register BYO agents (JSON contract), versions, environments |
+| Overview | Mission control — KPIs, approvals, recent activity |
+| Registry | Register BYO agents; versions like images |
 | Agent detail | Deploy, rollback, start governed run |
-| **Agent live view** (`/runs/[id]`) | Watch — CCTV timeline, badge checks, inline approvals, cost, stop |
-| Runs | Fleet run list → opens live view |
-| Approvals | Human OK before risky writes |
-| Policies | Badge rules: ALLOW / DENY / APPROVAL_REQUIRED |
-| Evaluations | Test & roll back |
-| Audit | CCTV for the control plane |
-| Costs | Per-agent run economics |
-
-Login demo: org `acme-auto` · `admin@acme.local` · `agentos-demo`
-
-## What we own
-
-Lifecycle: **Register → Set rules → Run privately → Watch → Approve → Test & roll back**
-
-What we do **not** own: agent internal reasoning or orchestration.
+| Live view | Timeline, policy decisions, inline approvals, stop |
+| Policies | ALLOW / DENY / APPROVAL_REQUIRED |
+| Approvals | Human gate for risky actions |
+| Audit | Tamper-evident security + governance log |
+| Evaluations | Safety/performance checks before promote |
 
 ## Layout
 
@@ -100,8 +84,8 @@ What we do **not** own: agent internal reasoning or orchestration.
 | `sdk/` | Thin Python SDK |
 | `cli/` | `agentctl` |
 | `web/` | Control-plane UI |
-| `examples/` | Reference agents & templates (not the product) |
+| `examples/` | Reference agents (not the product) |
 
 ## Explicit non-goals
 
-Not an OpenHands / CrewAI / LangGraph / Cursor / chatbot / foundation-model product.
+Not an OpenHands / CrewAI / LangGraph / Cursor / chatbot / foundation-model product. Optional AI supervision is a future plugin — never a dependency for Core.

@@ -186,6 +186,52 @@ def test_kill_switch_blocks_further_permits(client: TestClient, auth: dict, runn
     assert done.status_code == 403
 
 
+def test_kill_revokes_outstanding_permits(client: TestClient, auth: dict, runner: dict, tmp_path: Path):
+    """Mint permit → kill → pre-execute check and connector refuse revoked grant."""
+    run_id = _register_deploy_run(client, auth)
+    client.post(f"/api/v1/runner/runs/{run_id}/claim", headers=runner)
+    gate = client.post(
+        "/api/v1/runner/tool-gate",
+        headers=runner,
+        json={
+            "run_id": run_id,
+            "tool": "jira",
+            "action": "get_issue",
+            "args": {"key": "AUTO-42"},
+        },
+    ).json()
+    assert gate["effect"] == "ALLOW"
+    token = gate["capability_token"]
+    assert token
+
+    stop = client.post(f"/api/v1/runs/{run_id}/stop", headers=auth)
+    assert stop.status_code == 200
+    assert stop.json()["revoked_grants"] >= 1
+
+    check = client.post(
+        "/api/v1/runner/capability-check",
+        headers=runner,
+        json={
+            "run_id": run_id,
+            "tool": "jira",
+            "action": "get_issue",
+            "capability_token": token,
+        },
+    )
+    assert check.status_code == 403
+
+    # Connector path also honors ledger revoke when DB is shared
+    from connectors import ConnectorError, JiraConnector
+
+    jira = JiraConnector()
+    with pytest.raises(ConnectorError, match="revoked"):
+        jira.execute("get_issue", {"key": "AUTO-42"}, capability_token=token)
+
+    audit = client.get("/api/v1/audit", headers=auth).json()
+    assert any(e["action"] == "credential.revoke" for e in audit)
+    assert any(e["action"] == "run.stop" for e in audit)
+
+
 def test_denied_git_delete_cannot_get_permit(client: TestClient, auth: dict, runner: dict):
     run_id = _register_deploy_run(client, auth)
     client.post(f"/api/v1/runner/runs/{run_id}/claim", headers=runner)

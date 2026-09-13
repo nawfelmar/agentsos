@@ -92,7 +92,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <aside className="sidebar">
             <div className="brand-block">
               <p className="brand">AgentOS</p>
-              <p className="brand-sub">Agent control plane</p>
+              <p className="brand-sub">Security &amp; control for agents</p>
             </div>
             {NAV.map((group) => (
               <div key={group.section}>

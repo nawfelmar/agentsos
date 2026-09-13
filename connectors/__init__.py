@@ -14,7 +14,12 @@ from typing import Any
 
 import httpx
 
-from controlplane.enforcement import CapabilityPermit, PermitError, verify_capability_token
+from controlplane.enforcement import (
+    CapabilityPermit,
+    PermitError,
+    refuse_if_grant_revoked,
+    verify_capability_token,
+)
 
 
 class ConnectorError(Exception):
@@ -25,7 +30,9 @@ class BaseConnector:
     """Connectors are inert without a control-plane capability permit.
 
     Agents cannot authorize themselves: HMAC-verified permits are issued only
-    after external policy ALLOW (or redeemed approval).
+    after external policy ALLOW (or redeemed approval). When a grant ledger
+    row exists (production path), revoked/consumed permits are refused even if
+    the HMAC signature is still cryptographically valid.
     """
 
     name: str = "base"
@@ -54,6 +61,20 @@ class BaseConnector:
             raise ConnectorError("Refused: capability permit tool mismatch")
         if permit.action != action:
             raise ConnectorError("Refused: capability permit action mismatch")
+        # Honor kill-switch revocation when the grant ledger is reachable
+        try:
+            from controlplane.db import SessionLocal
+
+            db = SessionLocal()
+            try:
+                refuse_if_grant_revoked(db, permit)
+            finally:
+                db.close()
+        except PermitError as exc:
+            raise ConnectorError(f"Refused: {exc}") from exc
+        except Exception:
+            # DB unavailable (isolated unit tests without schema) — HMAC still required
+            pass
         return permit
 
     def _execute(

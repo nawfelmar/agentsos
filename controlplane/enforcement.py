@@ -167,6 +167,44 @@ def verify_capability_token(token: str) -> CapabilityPermit:
     )
 
 
+def assert_grant_active(db: Session, permit: CapabilityPermit) -> CapabilityGrant:
+    """Ledger check: grant must exist, be unrevoked, unconsumed, and unexpired.
+
+    HMAC signature alone is insufficient after a kill — revoked grants stay
+    cryptographically valid until TTL, but the ledger refuses them.
+    """
+    grant = db.get(CapabilityGrant, permit.jti)
+    if not grant:
+        raise PermitError("Capability permit unknown or revoked")
+    if grant.revoked_at is not None:
+        raise PermitError("Capability permit revoked")
+    if grant.consumed_at is not None:
+        raise PermitError("Capability permit already consumed")
+    if grant.expires_at and grant.expires_at < datetime.utcnow():
+        raise PermitError("Capability permit expired")
+    if grant.run_id != permit.run_id:
+        raise PermitError("Capability permit run mismatch")
+    return grant
+
+
+def validate_capability_for_execute(
+    db: Session,
+    token: str,
+    *,
+    run_id: str,
+    tool: str,
+    action: str,
+) -> CapabilityPermit:
+    """Pre-execute check: signature + ledger. Does not consume the permit."""
+    permit = verify_capability_token(token)
+    if permit.run_id != run_id or permit.tool != tool or permit.action != action:
+        raise PermitError("Capability permit does not match requested action")
+    if permit.resource != canonical_resource(tool, action):
+        raise PermitError("Capability permit resource mismatch")
+    assert_grant_active(db, permit)
+    return permit
+
+
 def consume_capability_token(
     db: Session,
     token: str,
@@ -176,25 +214,55 @@ def consume_capability_token(
     action: str,
 ) -> CapabilityPermit:
     """Verify permit and mark single-use grant consumed. Infrastructure authority."""
-    permit = verify_capability_token(token)
-    if permit.run_id != run_id or permit.tool != tool or permit.action != action:
-        raise PermitError("Capability permit does not match requested action")
-    if permit.resource != canonical_resource(tool, action):
-        raise PermitError("Capability permit resource mismatch")
-
+    permit = validate_capability_for_execute(
+        db, token, run_id=run_id, tool=tool, action=action
+    )
     grant = db.get(CapabilityGrant, permit.jti)
-    if not grant:
-        raise PermitError("Capability permit unknown or revoked")
-    if grant.run_id != run_id:
-        raise PermitError("Capability permit run mismatch")
+    assert grant is not None  # validated above
+    grant.consumed_at = datetime.utcnow()
+    db.flush()
+    return permit
+
+
+def revoke_run_capability_grants(db: Session, run_id: str) -> int:
+    """Kill-switch containment: revoke all outstanding permits for a run.
+
+    Returns the number of grants newly revoked. Already-consumed grants are
+    left unchanged (forensic trail). The agent cannot refuse this.
+    """
+    now = datetime.utcnow()
+    grants = (
+        db.query(CapabilityGrant)
+        .filter(
+            CapabilityGrant.run_id == run_id,
+            CapabilityGrant.revoked_at.is_(None),
+            CapabilityGrant.consumed_at.is_(None),
+        )
+        .all()
+    )
+    for grant in grants:
+        grant.revoked_at = now
+    db.flush()
+    return len(grants)
+
+
+def refuse_if_grant_revoked(db: Session | None, permit: CapabilityPermit) -> None:
+    """Connector defense-in-depth: if a ledger row exists, honor revoke/consume.
+
+    HMAC-only tokens without a grant row (local unit tests) still verify by
+    signature. Production tool-gate always mints a grant; kill sets revoked_at.
+    """
+    if db is None:
+        return
+    grant = db.get(CapabilityGrant, permit.jti)
+    if grant is None:
+        return
+    if grant.revoked_at is not None:
+        raise PermitError("Capability permit revoked")
     if grant.consumed_at is not None:
         raise PermitError("Capability permit already consumed")
     if grant.expires_at and grant.expires_at < datetime.utcnow():
         raise PermitError("Capability permit expired")
-
-    grant.consumed_at = datetime.utcnow()
-    db.flush()
-    return permit
 
 def issue_signed_capability_token(
     *,

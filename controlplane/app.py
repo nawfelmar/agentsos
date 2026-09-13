@@ -6,15 +6,27 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect, text
 
 from controlplane.api import router
 from controlplane.db import Base, engine
 from controlplane.settings import settings
 
 
+def _ensure_schema() -> None:
+    Base.metadata.create_all(bind=engine)
+    # Lightweight SQLite column add for evolving MVP schema (no Alembic yet)
+    insp = inspect(engine)
+    if "capability_grants" in insp.get_table_names():
+        cols = {c["name"] for c in insp.get_columns("capability_grants")}
+        if "revoked_at" not in cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE capability_grants ADD COLUMN revoked_at DATETIME"))
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    _ensure_schema()
     yield
 
 

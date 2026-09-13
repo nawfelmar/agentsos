@@ -38,9 +38,12 @@ from controlplane.enforcement import (
     canonical_resource,
     consume_capability_token,
     mint_capability_permit,
+    revoke_run_capability_grants,
+    validate_capability_for_execute,
 )
 from controlplane.schemas import (
     ApprovalDecision,
+    CapabilityCheckRequest,
     CreateRunRequest,
     DeployRequest,
     EvaluateRequest,
@@ -870,6 +873,52 @@ def ingest_event(
     return {"status": "ok"}
 
 
+@router.post("/runner/capability-check")
+def capability_check(
+    body: CapabilityCheckRequest,
+    _: bool = Depends(require_runner),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Pre-execute ledger check — kill-revoked permits fail here before connectors run."""
+    run = db.get(Run, body.run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    if run.status in TERMINAL_RUN_STATUSES or run.status == "stopped":
+        raise HTTPException(403, f"Run is {run.status}; kill-switch blocks execution")
+    try:
+        permit = validate_capability_for_execute(
+            db,
+            body.capability_token,
+            run_id=body.run_id,
+            tool=body.tool,
+            action=body.action,
+        )
+    except PermitError as exc:
+        _audit(
+            db,
+            run.organization_id,
+            f"agent:{run.agent_name}",
+            "policy.violation",
+            "run",
+            run.id,
+            {
+                "reason": str(exc),
+                "tool": body.tool,
+                "action": body.action,
+                "security_event": "POLICY_VIOLATION",
+                "action_taken": "BLOCKED",
+                "phase": "pre_execute",
+            },
+        )
+        db.commit()
+        raise HTTPException(403, str(exc)) from exc
+    return {
+        "status": "ok",
+        "jti": permit.jti,
+        "resource": permit.resource,
+    }
+
+
 @router.post("/runner/tool-result")
 def tool_result(
     body: ToolResultRequest,
@@ -1086,7 +1135,14 @@ def stop_run(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
-    """Operator kill-switch: stop a live agent run and reject open approvals."""
+    """Operator kill-switch: real containment, not a UI status flip.
+
+    Sequence (deterministic enforcement — agent cannot refuse):
+      1. Stop authorizing new actions (terminal run status)
+      2. Reject open approvals
+      3. Revoke outstanding capability grants
+      4. Preserve forensic telemetry + audit containment
+    """
     run = db.get(Run, run_id)
     if not run or run.organization_id != user.organization_id:
         raise HTTPException(404, "Run not found")
@@ -1099,6 +1155,9 @@ def stop_run(
         approval.decided_by = user.email
         approval.decided_at = datetime.utcnow()
 
+    # Containment: revoke before flipping status so concurrent execute checks fail
+    revoked = revoke_run_capability_grants(db, run.id)
+
     run.status = "stopped"
     run.error = f"Stopped by {user.email}"
     run.finished_at = datetime.utcnow()
@@ -1107,12 +1166,50 @@ def stop_run(
             run_id=run.id,
             type="agent.stopped",
             status="stopped",
-            metadata_json={"stopped_by": user.email, "rejected_approvals": len(pending)},
+            metadata_json={
+                "stopped_by": user.email,
+                "rejected_approvals": len(pending),
+                "revoked_grants": revoked,
+                "containment": [
+                    "stop_new_actions",
+                    "reject_approvals",
+                    "revoke_credentials",
+                    "preserve_telemetry",
+                ],
+            },
         )
     )
-    _audit(db, user.organization_id, user.email, "run.stop", "run", run.id, {"rejected_approvals": len(pending)})
+    _audit(
+        db,
+        user.organization_id,
+        user.email,
+        "run.stop",
+        "run",
+        run.id,
+        {
+            "rejected_approvals": len(pending),
+            "revoked_grants": revoked,
+            "security_event": "CONTAINMENT",
+            "action_taken": "KILL",
+        },
+    )
+    if revoked:
+        _audit(
+            db,
+            user.organization_id,
+            user.email,
+            "credential.revoke",
+            "run",
+            run.id,
+            {"revoked_grants": revoked, "security_event": "CONTAINMENT"},
+        )
     db.commit()
-    return {"id": run.id, "status": run.status, "rejected_approvals": len(pending)}
+    return {
+        "id": run.id,
+        "status": run.status,
+        "rejected_approvals": len(pending),
+        "revoked_grants": revoked,
+    }
 
 
 # ── Evaluations ─────────────────────────────────────────────────────────────

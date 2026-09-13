@@ -41,16 +41,16 @@ export default function LoginPage() {
         <div>
           <h1>AgentOS</h1>
           <p className="pitch">
-            The security desk for agents you already run — on your infra, under your rules.
+            The security and control layer for autonomous AI — create agents anywhere; AgentOS decides what they may do.
           </p>
           <ul>
-            <li>Register agents and deploy versions like images</li>
-            <li>Enforce policy outside the model; hold risky writes for approval</li>
-            <li>Audit every call, score builds, roll back when they fail</li>
+            <li>Identity, policy, and action gateway outside the model</li>
+            <li>Short-lived permits, human approvals, and a real kill switch</li>
+            <li>Audit every request — no AI supervisor required for core</li>
           </ul>
         </div>
         <div className="mono login-foot">
-          Control plane — not the agent’s brain. Limits actions; does not trust behavior.
+          Deterministic enforcement. Agents request. AgentOS decides. Infrastructure enforces.
         </div>
       </section>
       <section className="login-panel">

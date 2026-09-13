@@ -63,12 +63,19 @@ class ControlPlaneClient:
             r.raise_for_status()
             return r.json()
 
+    def capability_check(self, payload: dict[str, Any]) -> dict[str, Any]:
+        with self._client() as c:
+            r = c.post("/api/v1/runner/capability-check", json=payload)
+            r.raise_for_status()
+            return r.json()
+
 
 class ExecutionGateway:
     """All tool calls go through external policy before connector execution.
 
     The agent only *requests*. AgentOS evaluates policy, issues a capability
-    permit, and connectors refuse to run without that permit.
+    permit, and connectors refuse to run without that permit. Before execute,
+    the runner re-checks the grant ledger so kill-revoked permits cannot race.
     """
 
     def __init__(self, cp: ControlPlaneClient, connectors: ConnectorRegistry, run_id: str):
@@ -155,6 +162,15 @@ class ExecutionGateway:
         *,
         capability_token: str,
     ) -> dict[str, Any]:
+        # Kill-switch race: outstanding HMAC tokens must re-check the ledger
+        self.cp.capability_check(
+            {
+                "run_id": self.run_id,
+                "tool": tool,
+                "action": action,
+                "capability_token": capability_token,
+            }
+        )
         start = time.time()
         connector = self.connectors.get(tool)
         try:

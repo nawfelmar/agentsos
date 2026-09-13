@@ -184,6 +184,7 @@ class CapabilityGrant(Base):
     approval_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

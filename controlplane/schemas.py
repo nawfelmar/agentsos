@@ -126,6 +126,15 @@ class RunOut(BaseModel):
         from_attributes = True
 
 
+class CapabilityCheckRequest(BaseModel):
+    """Pre-execute validation of a capability permit against the grant ledger."""
+
+    run_id: str
+    tool: str
+    action: str
+    capability_token: str
+
+
 class ToolResultRequest(BaseModel):
     """Runner reports tool outcome only by redeeming a capability permit."""
 
