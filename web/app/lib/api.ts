@@ -1,4 +1,6 @@
-const API = process.env.NEXT_PUBLIC_AGENTOS_API || "http://127.0.0.1:8080";
+// Same-origin proxy (/cp-api → control plane via next.config.js rewrites).
+// Absolute NEXT_PUBLIC_AGENTOS_API overrides when set at build time.
+const API = process.env.NEXT_PUBLIC_AGENTOS_API || "/cp-api";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
