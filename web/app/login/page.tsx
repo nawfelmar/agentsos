@@ -41,16 +41,16 @@ export default function LoginPage() {
         <div>
           <h1>AgentOS</h1>
           <p className="pitch">
-            Bring your AI agents. Run them safely, see what they did, and control what they’re allowed to touch.
+            Mission control for AI agents you already own — private runs, badge-gated tools, human approval at the edge.
           </p>
           <ul>
-            <li>Register agents · set badge rules · run on your infra</li>
-            <li>Watch every tool call · approve risky writes before they land</li>
-            <li>Score new versions · roll back when they’re worse</li>
+            <li>Register the fleet · set instrument limits · fly on your infra</li>
+            <li>Flight-record every tool call · hold risky writes for clearance</li>
+            <li>Score new builds · abort and roll back when they drift</li>
           </ul>
         </div>
         <div className="mono" style={{ opacity: 0.7 }}>
-          Security desk + control room — not the agent’s brain
+          Orbital security desk — not the agent’s brain
         </div>
       </section>
       <section className="login-panel">
@@ -62,7 +62,7 @@ export default function LoginPage() {
           }}
         >
           <h2>Sign in</h2>
-          <p className="sub">Sign in to the security desk for your AI agent fleet.</p>
+          <p className="sub">Enter the control plane for your agent fleet.</p>
           {error ? <div className="error-banner">{error}</div> : null}
           <div className="field">
             <label>Organization</label>

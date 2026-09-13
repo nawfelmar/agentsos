@@ -38,12 +38,12 @@ export default function OverviewPage() {
   return (
     <>
       <PageHeader
-        title="Control room"
-        lede="If agents are employees, this is HR + security badges + CCTV + change management — register, gate tools, watch every action, approve risky writes, test and roll back."
+        title="Mission control"
+        lede="Orbital desk for the agents you already fly — register the fleet, set instrument limits, watch every tool call, clear risky writes, score builds and abort when they drift."
         actions={
           <>
             <Link className="btn secondary" href="/registry">Open registry</Link>
-            <Link className="btn" href="/approvals">Review approvals</Link>
+            <Link className="btn" href="/approvals">Review clearances</Link>
           </>
         }
       />
