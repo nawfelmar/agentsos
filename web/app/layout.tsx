@@ -36,6 +36,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   const [pendingApprovals, setPendingApprovals] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     if (pathname === "/login") {
       setReady(true);
       return;
@@ -45,14 +46,23 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       return;
     }
     setOrg(getOrg());
-    Promise.all([api("/me").catch(() => null), api("/approvals?status_filter=pending").catch(() => [])]).then(
-      ([profile, approvals]) => {
+    // Never leave the shell stuck on "Loading…" if the API is slow/down.
+    const failSafe = window.setTimeout(() => {
+      if (!cancelled) setReady(true);
+    }, 4000);
+    Promise.all([api("/me").catch(() => null), api("/approvals?status_filter=pending").catch(() => [])])
+      .then(([profile, approvals]) => {
+        if (cancelled) return;
         setMe(profile);
         if (profile?.organization) setOrg(profile.organization);
         setPendingApprovals(Array.isArray(approvals) ? approvals.length : 0);
         setReady(true);
-      },
-    );
+      })
+      .finally(() => window.clearTimeout(failSafe));
+    return () => {
+      cancelled = true;
+      window.clearTimeout(failSafe);
+    };
   }, [pathname, router]);
 
   const counts = useMemo(() => ({ approvals: pendingApprovals }), [pendingApprovals]);
