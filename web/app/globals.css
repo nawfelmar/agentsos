@@ -332,3 +332,51 @@ button { cursor: pointer; }
 .approval-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 1.1rem 1.15rem; box-shadow: var(--shadow); }
 .approval-card + .approval-card { margin-top: .85rem; }
 .split-actions { display: flex; gap: .55rem; flex-wrap: wrap; margin-top: .9rem; }
+
+/* ── Protection evidence (rogue-agent blocks) ───────────────────────────── */
+.protect-stat { box-shadow: inset 0 0 0 1px rgba(214,122,106,.28); }
+.protect-stat .value { color: #efb0a4; }
+.protect-panel { border-color: rgba(214,122,106,.28); background:
+  linear-gradient(180deg, rgba(214,122,106,.07), transparent 42%), var(--surface); }
+.protect-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .85rem; }
+.protect-list.compact { gap: .65rem; }
+.protect-item {
+  border: 1px solid rgba(214,122,106,.22);
+  border-radius: 8px;
+  padding: .85rem 1rem;
+  background: rgba(0,0,0,.18);
+}
+.protect-item-hd, .protect-item-ft {
+  display: flex; align-items: center; gap: .65rem; flex-wrap: wrap;
+}
+.protect-item-hd { margin-bottom: .35rem; }
+.protect-item-hd strong { flex: 1; min-width: 12rem; }
+.protect-item-hd time, .protect-item-ft { color: var(--muted); font-size: .8rem; }
+.protect-item p { margin: 0 0 .55rem; color: var(--ink-2); line-height: 1.45; font-size: .92rem; }
+.protect-badge {
+  font-family: var(--font-mono); font-size: .68rem; font-weight: 600; letter-spacing: .06em;
+  padding: .18rem .45rem; border-radius: 4px;
+  color: #efb0a4; background: var(--danger-soft); border: 1px solid rgba(214,122,106,.35);
+}
+.protect-outcome {
+  font-family: var(--font-mono); font-size: .75rem; color: #9fd9c0;
+  background: var(--ok-soft); border: 1px solid rgba(95,173,143,.35);
+  padding: .15rem .5rem; border-radius: 4px;
+}
+.protect-banner {
+  margin: 0 0 1rem;
+  border: 1px solid rgba(214,122,106,.35);
+  border-radius: 10px;
+  padding: 1rem 1.15rem;
+  background:
+    radial-gradient(600px 180px at 0% 0%, rgba(214,122,106,.12), transparent 55%),
+    linear-gradient(180deg, rgba(214,122,106,.06), transparent 50%), var(--surface);
+  animation: rise-in .45s ease both;
+}
+.protect-banner-hd { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin-bottom: .35rem; }
+.protect-banner-hd h2 { margin: 0; flex: 1; font-size: 1.05rem; font-family: var(--font-brand); letter-spacing: -.02em; }
+.protect-banner-lede { margin: 0 0 .85rem; color: var(--muted); font-size: .9rem; max-width: 68ch; }
+.row-protect td { background: rgba(214,122,106,.05); }
+.linkish { background: none; border: none; color: var(--teal-ink); font-weight: 600; padding: 0; font-size: .82rem; }
+.linkish:hover { text-decoration: underline; }
+

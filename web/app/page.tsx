@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "./lib/api";
 import { EmptyState, PageHeader, StatusBadge, formatTime, shortId } from "./components/ui";
+import { isProtectionAudit, protectionHeadline, protectionOutcome, protectionStory } from "./lib/protections";
 
 export default function OverviewPage() {
   const [agents, setAgents] = useState<any[]>([]);
@@ -11,6 +12,7 @@ export default function OverviewPage() {
   const [approvals, setApprovals] = useState<any[]>([]);
   const [evals, setEvals] = useState<any[]>([]);
   const [costs, setCosts] = useState<any[]>([]);
+  const [audit, setAudit] = useState<any[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -20,13 +22,15 @@ export default function OverviewPage() {
       api("/approvals?status_filter=pending"),
       api("/evaluations"),
       api("/costs"),
+      api("/audit?action=policy.violation").catch(() => []),
     ])
-      .then(([a, r, ap, ev, c]) => {
+      .then(([a, r, ap, ev, c, au]) => {
         setAgents(a);
         setRuns(r);
         setApprovals(ap);
         setEvals(ev);
         setCosts(c);
+        setAudit(Array.isArray(au) ? au : []);
       })
       .catch((e) => setError(String(e.message || e)));
   }, []);
@@ -34,6 +38,7 @@ export default function OverviewPage() {
   const succeeded = runs.filter((r) => r.status === "succeeded").length;
   const waiting = runs.filter((r) => r.status === "waiting_approval").length;
   const totalCost = costs.reduce((s, c) => s + Number(c.cost || 0), 0);
+  const protections = audit.filter(isProtectionAudit);
 
   return (
     <>
@@ -42,7 +47,7 @@ export default function OverviewPage() {
         lede="Bring your agents. Limit what they can do. See every request. Enforce policy outside the model."
         actions={
           <>
-            <Link className="btn secondary" href="/registry">Open registry</Link>
+            <Link className="btn secondary" href="/audit?focus=protections">See protections</Link>
             <Link className="btn" href="/approvals">Review approvals</Link>
           </>
         }
@@ -65,11 +70,43 @@ export default function OverviewPage() {
           <div className="value">{approvals.length}</div>
           <div className="hint">{waiting ? `${waiting} runs waiting` : "No blocked runs"}</div>
         </div>
-        <div className="stat-card">
-          <div className="label">Est. cost</div>
-          <div className="value">€{totalCost.toFixed(2)}</div>
-          <div className="hint">Across recorded runs</div>
+        <div className="stat-card protect-stat">
+          <div className="label">Protections</div>
+          <div className="value">{protections.length}</div>
+          <div className="hint">Rogue / denied attempts blocked</div>
         </div>
+      </div>
+
+      <div className="panel protect-panel">
+        <div className="panel-hd">
+          <h2>How AgentOS protected you</h2>
+          <Link href="/audit?focus=protections">Full security log</Link>
+        </div>
+        {protections.length ? (
+          <ul className="protect-list">
+            {protections.slice(0, 5).map((e) => (
+              <li key={e.id} className="protect-item">
+                <div className="protect-item-hd">
+                  <span className="protect-badge">PROTECTED</span>
+                  <strong>{protectionHeadline(e)}</strong>
+                  <time className="mono">{formatTime(e.timestamp)}</time>
+                </div>
+                <p>{protectionStory(e)}</p>
+                <div className="protect-item-ft">
+                  <span className="protect-outcome">{protectionOutcome()}</span>
+                  {e.target_type === "run" && e.target_id ? (
+                    <Link className="mono" href={`/runs/${e.target_id}`}>Open run {shortId(e.target_id)}</Link>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState
+            title="No policy violations yet"
+            body="When an agent tries something outside policy — spoofing a resource, touching secrets, or writing without approval — the block shows up here with proof."
+          />
+        )}
       </div>
 
       <div className="grid-2">

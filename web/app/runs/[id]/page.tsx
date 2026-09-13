@@ -5,6 +5,12 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
 import { StatusBadge, formatTime, shortId } from "../../components/ui";
+import {
+  isProtectionRunEvent,
+  protectionHeadline,
+  protectionOutcome,
+  protectionStory,
+} from "../../lib/protections";
 
 type Filter = "all" | "tools" | "policy" | "approvals" | "errors";
 
@@ -286,6 +292,53 @@ export default function AgentLiveViewPage() {
 
       {msg ? <div className="success-banner">{msg}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}
+
+      {(() => {
+        const blocks = events.filter(isProtectionRunEvent);
+        if (!blocks.length && run.status !== "stopped") return null;
+        const stopped = run.status === "stopped";
+        return (
+          <section className="protect-banner" aria-live="polite">
+            <div className="protect-banner-hd">
+              <span className="protect-badge">PROTECTED</span>
+              <h2>
+                {stopped && !blocks.length
+                  ? "Kill switch engaged — agent cannot obtain new tool permits"
+                  : `AgentOS blocked ${blocks.length} unauthorized attempt${blocks.length === 1 ? "" : "s"}`}
+              </h2>
+              <Link className="btn secondary sm" href="/audit?focus=protections">
+                Security log
+              </Link>
+            </div>
+            <p className="protect-banner-lede">
+              The agent can request anything. These actions never reached a connector — policy and capability
+              permits are enforced outside the model.
+            </p>
+            {blocks.length ? (
+              <ul className="protect-list compact">
+                {blocks
+                  .slice(-5)
+                  .reverse()
+                  .map((e) => (
+                    <li key={e.id} className="protect-item">
+                      <div className="protect-item-hd">
+                        <strong>{protectionHeadline(e)}</strong>
+                        <time className="mono">{clock(e.timestamp)}</time>
+                      </div>
+                      <p>{protectionStory({ ...e, actor: `agent:${run.agent_name}` })}</p>
+                      <div className="protect-item-ft">
+                        <span className="protect-outcome">{protectionOutcome()}</span>
+                        <button type="button" className="linkish" onClick={() => setSelected(e)}>
+                          Show in timeline
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+              </ul>
+            ) : null}
+          </section>
+        );
+      })()}
 
       <section className="live-top-grid">
         <div className="live-card status-card">
