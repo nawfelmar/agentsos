@@ -38,7 +38,7 @@ async function loadBuffer(name: SoundName): Promise<AudioBuffer | null> {
   }
 }
 
-async function playOnce(name: SoundName, volume = 0.55) {
+async function playOnce(name: SoundName, volume = 0.35) {
   const ctx = getCtx();
   if (!ctx) return;
   if (ctx.state === "suspended") await ctx.resume().catch(() => undefined);
@@ -53,7 +53,7 @@ async function playOnce(name: SoundName, volume = 0.55) {
   src.start(0);
 }
 
-/** Start looping the Relay ring motif (caller side). */
+/** Start looping the calm Relay ring bed (caller side). */
 export async function startRelayRing() {
   stopRelayRing();
   const ctx = getCtx();
@@ -63,7 +63,8 @@ export async function startRelayRing() {
   if (!buf) return;
   const src = ctx.createBufferSource();
   const gain = ctx.createGain();
-  gain.gain.value = 0.5;
+  // Quiet by design — enterprise soft, not attention-grabbing
+  gain.gain.value = 0.32;
   src.buffer = buf;
   src.loop = true;
   src.connect(gain);
@@ -91,12 +92,12 @@ export function stopRelayRing() {
 
 export async function playRelayConnected() {
   stopRelayRing();
-  await playOnce("connected", 0.5);
+  await playOnce("connected", 0.28);
 }
 
 export async function playRelayHangup() {
   stopRelayRing();
-  await playOnce("hangup", 0.6);
+  await playOnce("hangup", 0.3);
 }
 
 /** Warm the AudioContext after a user gesture (Call click). */

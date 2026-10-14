@@ -106,7 +106,7 @@ export function DirectCallRoom({
         </div>
         {ringing && (
           <p className="mt-2 text-[11px] text-white/70">
-            Relay ring motif playing — connecting shortly…
+            Connecting — soft Relay tone…
           </p>
         )}
         {media.error && (
