@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { DemoBanner } from "@/components/ui/demo-banner";
 import { MeetingSummaryCard } from "@/components/meetings/meeting-summary-card";
 import { SharedMeetingBoard } from "@/components/meetings/shared-meeting-board";
-import { CallAnyonePanel } from "@/components/meetings/call-anyone-panel";
 import { LiveStatementForm } from "@/components/meetings/live-statement-form";
 import { parseJson } from "@/lib/utils";
 import { ensureSeeded } from "@/lib/ensure-seeded";
@@ -33,7 +32,6 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
   }>(meeting.outcomesJson, {});
 
   const live = meeting.status === "in_progress";
-  const inMeetingUserIds = meeting.participants.map((p) => p.userId);
 
   return (
     <AppShell
@@ -53,8 +51,8 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
       context={
         <div className="space-y-3 text-xs text-muted">
           <p>
-            Start the meeting, call any employee into the room, and pin statement highlights so everyone’s
-            position stays clear on the shared board.
+            Start the meeting to reveal Call next to each person. Toggle privacy in the call bar, and pin
+            statement highlights on the shared board.
           </p>
           <Badge tone={live ? "success" : "accent"}>{live ? "In progress" : "Ready to start"}</Badge>
         </div>
@@ -100,29 +98,13 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           }))}
         />
 
-        <div className={live ? "grid gap-4" : "grid gap-4 lg:grid-cols-2"}>
-          {!live && (
-            <CallAnyonePanel
-              meetingId={meeting.id}
-              meetingLive={live}
-              inMeetingUserIds={inMeetingUserIds}
-              directory={directory.map((u) => ({
-                id: u.id,
-                name: u.name,
-                title: u.title,
-                avatarColor: u.avatarColor,
-                status: u.status,
-              }))}
-            />
-          )}
-          <LiveStatementForm
-            meetingId={meeting.id}
-            participants={meeting.participants.map((p) => ({
-              userId: p.userId,
-              name: p.user.name,
-            }))}
-          />
-        </div>
+        <LiveStatementForm
+          meetingId={meeting.id}
+          participants={meeting.participants.map((p) => ({
+            userId: p.userId,
+            name: p.user.name,
+          }))}
+        />
 
         <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
           <MeetingSummaryCard

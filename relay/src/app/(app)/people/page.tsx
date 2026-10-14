@@ -1,18 +1,20 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { AppShell } from "@/components/shell/app-shell";
-import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { CreateDummyMeetingButton } from "@/components/meetings/create-dummy-meeting-button";
+import { PersonCard } from "@/components/people/person-card";
 import { ensureSeeded } from "@/lib/ensure-seeded";
-import { getCurrentUser, getNotifications, getUsers } from "@/lib/queries";
+import { getCurrentUser, getLiveMeeting, getNotifications, getUsers } from "@/lib/queries";
 import { prisma } from "@/lib/db";
 
 export default async function PeoplePage() {
   if (!(await ensureSeeded())) redirect("/setup");
-  const [user, notifications, users] = await Promise.all([
+  const [user, notifications, users, liveMeeting] = await Promise.all([
     getCurrentUser(),
     getNotifications(),
     getUsers(),
+    getLiveMeeting(),
   ]);
   if (!user) redirect("/setup");
 
@@ -25,6 +27,8 @@ export default async function PeoplePage() {
     list.push(m.team.name);
     teamByUser.set(m.userId, list);
   }
+
+  const inCallIds = new Set(liveMeeting?.participants.map((p) => p.userId) ?? []);
 
   const byRole = {
     executive: users.filter((u) => u.role === "executive"),
@@ -53,6 +57,17 @@ export default async function PeoplePage() {
             Northline is seeded with a full engineering org. Create a dummy meeting to put several of
             them on a shared board with statement highlights.
           </p>
+          {liveMeeting ? (
+            <p>
+              A meeting is live —{" "}
+              <Link href={`/meetings/${liveMeeting.id}`} className="text-accent hover:underline">
+                {liveMeeting.title}
+              </Link>
+              . Call appears next to each person.
+            </p>
+          ) : (
+            <p>Call next to each person is hidden until a meeting is live.</p>
+          )}
           <CreateDummyMeetingButton className="w-full" />
         </div>
       }
@@ -64,8 +79,21 @@ export default async function PeoplePage() {
             <p className="mt-1 text-sm text-muted">
               Seeded employees across Platform, Checkout, and Data.
             </p>
+            {liveMeeting ? (
+              <p className="mt-2 text-xs text-success">
+                Live: <Link href={`/meetings/${liveMeeting.id}`} className="underline">{liveMeeting.title}</Link>
+                {" — "}Call is next to each person
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-faint">
+                Start a meeting to reveal Call next to anyone in this directory.
+              </p>
+            )}
           </div>
-          <CreateDummyMeetingButton variant="secondary" />
+          <div className="flex flex-wrap items-center gap-2">
+            {liveMeeting && <Badge tone="success">Meeting live</Badge>}
+            <CreateDummyMeetingButton variant="secondary" />
+          </div>
         </div>
 
         {(
@@ -85,28 +113,13 @@ export default async function PeoplePage() {
               </h2>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {list.map((u) => (
-                  <article
+                  <PersonCard
                     key={u.id}
-                    className="flex items-start gap-3 rounded-relay border border-line bg-surface/70 p-3"
-                  >
-                    <Avatar name={u.name} color={u.avatarColor} status={u.status} />
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="text-sm font-medium text-ink">{u.name}</p>
-                        {u.isCurrentUser && <Badge tone="accent">you</Badge>}
-                      </div>
-                      <p className="text-xs text-muted">{u.title}</p>
-                      <p className="mt-1 text-[11px] text-faint">{u.email}</p>
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        <Badge tone="muted">{u.role}</Badge>
-                        {(teamByUser.get(u.id) ?? []).map((t) => (
-                          <Badge key={t} tone="muted">
-                            {t}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </article>
+                    person={u}
+                    teams={teamByUser.get(u.id) ?? []}
+                    liveMeetingId={liveMeeting?.id}
+                    alreadyInCall={inCallIds.has(u.id)}
+                  />
                 ))}
               </div>
             </section>

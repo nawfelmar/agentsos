@@ -6,7 +6,6 @@ import {
   Mic,
   MicOff,
   MonitorUp,
-  Phone,
   PhoneOff,
   Play,
   Square,
@@ -15,10 +14,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PrivacyModeToggle } from "@/components/meetings/privacy-mode-toggle";
-import {
-  CallAnyonePanel,
-  type DirectoryPerson,
-} from "@/components/meetings/call-anyone-panel";
+import { PeopleCallList } from "@/components/meetings/people-call-list";
+import type { DirectoryPerson } from "@/components/meetings/call-anyone-panel";
 import { cancelMeeting } from "@/lib/actions/meetings";
 import { endLiveMeeting, startLiveMeeting } from "@/lib/actions/live-meeting";
 import { cn } from "@/lib/utils";
@@ -38,7 +35,6 @@ export function MeetingRoomControls({
 }) {
   const [muted, setMuted] = useState(true);
   const [camOff, setCamOff] = useState(true);
-  const [dialerOpen, setDialerOpen] = useState(false);
   const [pending, start] = useTransition();
   const router = useRouter();
   const live = status === "in_progress";
@@ -72,12 +68,11 @@ export function MeetingRoomControls({
           )}
         >
           {privacyMode
-            ? "In call · privacy on — call anyone below; nothing leaves this room"
-            : "In call — dial anyone below, toggle privacy anytime"}
+            ? "In call · privacy on — Call appears next to each person below"
+            : "In call — Call appears next to each person; toggle privacy anytime"}
         </div>
       )}
 
-      {/* In-call action bar: A/V + privacy + dial + end */}
       <div className="space-y-2 rounded-relay border border-line bg-canvas/60 px-3 py-3">
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Button
@@ -104,19 +99,6 @@ export function MeetingRoomControls({
 
           {!ended && (
             <PrivacyModeToggle meetingId={meetingId} privacyMode={privacyMode} />
-          )}
-
-          {!ended && directory.length > 0 && (
-            <Button
-              size="sm"
-              variant={dialerOpen ? "primary" : "secondary"}
-              aria-expanded={dialerOpen}
-              onClick={() => setDialerOpen((v) => !v)}
-              title="Call any person into this meeting"
-            >
-              <Phone className="h-3.5 w-3.5" />
-              {dialerOpen ? "Hide dialer" : "Call anyone"}
-            </Button>
           )}
 
           {live ? (
@@ -152,13 +134,13 @@ export function MeetingRoomControls({
           )}
         </div>
 
-        {(dialerOpen || live) && !ended && directory.length > 0 && (
+        {/* Call next to each person — only while live (hidden otherwise) */}
+        {live && !ended && directory.length > 0 && (
           <div className="border-t border-line pt-3">
-            <CallAnyonePanel
+            <PeopleCallList
               meetingId={meetingId}
-              meetingLive={live}
-              inMeetingUserIds={inMeetingUserIds}
               directory={directory}
+              inMeetingUserIds={inMeetingUserIds}
               embedded
             />
           </div>
@@ -166,8 +148,7 @@ export function MeetingRoomControls({
       </div>
 
       <p className="text-center text-[11px] text-faint">
-        Demo A/V — audio/video are simulated. Calling people, privacy mode, and the shared board are
-        real app state.
+        Demo A/V — audio/video are simulated. Per-person Call and privacy mode are real app state.
       </p>
     </div>
   );

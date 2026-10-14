@@ -165,6 +165,17 @@ export async function getMeetings() {
   });
 }
 
+/** Active live meeting, if any — used to show per-person Call buttons. */
+export async function getLiveMeeting() {
+  return prisma.meeting.findFirst({
+    where: { status: "in_progress" },
+    include: {
+      participants: true,
+    },
+    orderBy: { startAt: "desc" },
+  });
+}
+
 export async function getMeeting(id: string) {
   return prisma.meeting.findUnique({
     where: { id },
