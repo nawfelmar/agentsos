@@ -21,11 +21,14 @@ export function CallAnyonePanel({
   directory,
   inMeetingUserIds,
   meetingLive,
+  embedded = false,
 }: {
   meetingId: string
   directory: DirectoryPerson[]
   inMeetingUserIds: string[]
   meetingLive: boolean
+  /** Compact dialer for the in-call control bar */
+  embedded?: boolean
 }) {
   const [q, setQ] = useState("");
   const [callingId, setCallingId] = useState<string | null>(null);
@@ -45,16 +48,34 @@ export function CallAnyonePanel({
       );
   }, [directory, inMeetingUserIds, q]);
 
+  const dial = (p: DirectoryPerson) =>
+    start(async () => {
+      setCallingId(p.id);
+      setFlash(`Calling ${p.name}…`);
+      const res = await callPersonIntoMeeting(meetingId, p.id);
+      setFlash(`${res.name} joined the call`);
+      setCallingId(null);
+      router.refresh();
+    });
+
   return (
-    <section className="rounded-relay border border-line bg-surface/70 p-4">
+    <section
+      className={
+        embedded
+          ? "rounded-relay border border-line/80 bg-surface/50 p-3"
+          : "rounded-relay border border-line bg-surface/70 p-4"
+      }
+    >
       <div className="mb-3 flex items-center justify-between gap-2">
         <div>
           <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
             <PhoneCall className="h-4 w-4 text-accent" />
-            Call anyone
+            {embedded ? "Dial into this call" : "Call anyone"}
           </h2>
           <p className="mt-0.5 text-[11px] text-muted">
-            Dial any employee into this room (demo call → they join the shared board).
+            {embedded
+              ? "Call any person directly — they join this room’s shared board."
+              : "Dial any employee into this room (demo call → they join the shared board)."}
           </p>
         </div>
         {!meetingLive && <Badge tone="warn">Starts meeting</Badge>}
@@ -75,7 +96,7 @@ export function CallAnyonePanel({
         <p className="mb-2 animate-fade-up text-xs text-success">{flash}</p>
       )}
 
-      <ul className="max-h-64 space-y-1 overflow-y-auto">
+      <ul className={embedded ? "max-h-48 space-y-1 overflow-y-auto" : "max-h-64 space-y-1 overflow-y-auto"}>
         {available.length === 0 && (
           <li className="px-1 py-4 text-center text-xs text-faint">
             {q ? "No matches" : "Everyone is already in the meeting"}
@@ -95,16 +116,7 @@ export function CallAnyonePanel({
               size="sm"
               variant={callingId === p.id ? "secondary" : "primary"}
               disabled={pending}
-              onClick={() =>
-                start(async () => {
-                  setCallingId(p.id);
-                  setFlash(`Calling ${p.name}…`);
-                  const res = await callPersonIntoMeeting(meetingId, p.id);
-                  setFlash(`${res.name} joined the call`);
-                  setCallingId(null);
-                  router.refresh();
-                })
-              }
+              onClick={() => dial(p)}
             >
               <Phone className="h-3 w-3" />
               {callingId === p.id ? "Ringing…" : "Call"}

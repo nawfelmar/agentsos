@@ -27,7 +27,7 @@ export function PrivacyModeToggle({
         aria-pressed={privacyMode}
         title={
           privacyMode
-            ? "Privacy mode on — outcomes stay in this meeting"
+            ? "Privacy on — click to turn off and allow syncing outside this meeting"
             : "Turn on privacy mode so nothing is shared outside this meeting"
         }
         className={cn(

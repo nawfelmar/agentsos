@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MeetingRoomControls } from "@/components/meetings/meeting-room-controls";
 import { PrivacyModeToggle } from "@/components/meetings/privacy-mode-toggle";
+import type { DirectoryPerson } from "@/components/meetings/call-anyone-panel";
 import { generateMeetingPositions } from "@/lib/actions/meetings";
 import {
   STANCE_LABEL,
@@ -58,6 +59,7 @@ export function SharedMeetingBoard({
   participants,
   positions,
   privacyMode = false,
+  directory = [],
 }: {
   meetingId: string
   status: string
@@ -65,6 +67,7 @@ export function SharedMeetingBoard({
   participants: Participant[]
   positions: MeetingPositions | null
   privacyMode?: boolean
+  directory?: DirectoryPerson[]
 }) {
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -230,7 +233,15 @@ export function SharedMeetingBoard({
             })}
           </div>
 
-          <MeetingRoomControls meetingId={meetingId} status={status} />
+          <MeetingRoomControls
+            meetingId={meetingId}
+            status={status}
+            privacyMode={privacyMode}
+            directory={directory}
+            inMeetingUserIds={participants
+              .map((p) => p.userId)
+              .filter((id): id is string => Boolean(id))}
+          />
         </div>
 
         {/* Shared statement feed — the clear board everyone sees */}

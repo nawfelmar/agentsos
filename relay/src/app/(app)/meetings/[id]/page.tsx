@@ -82,6 +82,13 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           topic={meeting.purpose ?? meeting.title}
           positions={outcomes.positions ?? null}
           privacyMode={meeting.privacyMode}
+          directory={directory.map((u) => ({
+            id: u.id,
+            name: u.name,
+            title: u.title,
+            avatarColor: u.avatarColor,
+            status: u.status,
+          }))}
           participants={meeting.participants.map((p) => ({
             id: p.id,
             userId: p.userId,
@@ -93,19 +100,21 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           }))}
         />
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <CallAnyonePanel
-            meetingId={meeting.id}
-            meetingLive={live}
-            inMeetingUserIds={inMeetingUserIds}
-            directory={directory.map((u) => ({
-              id: u.id,
-              name: u.name,
-              title: u.title,
-              avatarColor: u.avatarColor,
-              status: u.status,
-            }))}
-          />
+        <div className={live ? "grid gap-4" : "grid gap-4 lg:grid-cols-2"}>
+          {!live && (
+            <CallAnyonePanel
+              meetingId={meeting.id}
+              meetingLive={live}
+              inMeetingUserIds={inMeetingUserIds}
+              directory={directory.map((u) => ({
+                id: u.id,
+                name: u.name,
+                title: u.title,
+                avatarColor: u.avatarColor,
+                status: u.status,
+              }))}
+            />
+          )}
           <LiveStatementForm
             meetingId={meeting.id}
             participants={meeting.participants.map((p) => ({
