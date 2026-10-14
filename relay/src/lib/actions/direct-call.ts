@@ -40,14 +40,13 @@ export async function startDirectCall(calleeId: string) {
     throw new Error(`${callee.name} is already in a call`);
   }
 
-  // Demo: auto-answer so the 1:1 room opens immediately with both parties "connected"
+  // Start ringing — client plays Relay ring, then answerDirectCall connects
   const call = await prisma.directCall.create({
     data: {
       organizationId: me.organizationId,
       callerId: me.id,
       calleeId,
-      status: "active",
-      answeredAt: new Date(),
+      status: "ringing",
       privacyMode: false,
     },
   });
@@ -68,7 +67,7 @@ export async function startDirectCall(calleeId: string) {
       action: "direct_call.started",
       targetType: "DirectCall",
       targetId: call.id,
-      detail: `1:1 call with ${callee.name}`,
+      detail: `1:1 call ringing → ${callee.name}`,
     },
   });
 
@@ -76,6 +75,27 @@ export async function startDirectCall(calleeId: string) {
   revalidatePath(`/calls/${call.id}`);
   revalidatePath("/activity");
   return { ok: true as const, id: call.id };
+}
+
+/** Demo answer — peer picks up after the Relay ring motif. */
+export async function answerDirectCall(callId: string) {
+  const me = await requireCurrentUser();
+  const call = await prisma.directCall.findUnique({ where: { id: callId } });
+  if (!call) throw new Error("Call not found");
+  if (call.callerId !== me.id && call.calleeId !== me.id) {
+    throw new Error("Not a participant");
+  }
+  if (call.status === "active") return { ok: true as const };
+  if (call.status !== "ringing") throw new Error("Call is not ringing");
+
+  await prisma.directCall.update({
+    where: { id: callId },
+    data: { status: "active", answeredAt: new Date() },
+  });
+
+  revalidatePath(`/calls/${callId}`);
+  revalidatePath("/people");
+  return { ok: true as const };
 }
 
 export async function endDirectCall(callId: string) {

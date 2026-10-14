@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Mic,
@@ -18,7 +18,18 @@ import { VideoTile } from "@/components/calls/video-tile";
 import { DraggablePip } from "@/components/calls/draggable-pip";
 import { useLocalMedia } from "@/hooks/use-local-media";
 import { useDemoPeerMedia } from "@/hooks/use-demo-peer-media";
-import { endDirectCall, setDirectCallPrivacyMode } from "@/lib/actions/direct-call";
+import {
+  answerDirectCall,
+  endDirectCall,
+  setDirectCallPrivacyMode,
+} from "@/lib/actions/direct-call";
+import {
+  armCallAudio,
+  playRelayConnected,
+  playRelayHangup,
+  startRelayRing,
+  stopRelayRing,
+} from "@/lib/call-sounds";
 import { cn } from "@/lib/utils";
 
 export function DirectCallRoom({
@@ -34,31 +45,70 @@ export function DirectCallRoom({
   me: { id: string; name: string; color: string }
   peer: { id: string; name: string; color: string; title: string }
 }) {
-  const live = status === "active" || status === "ringing";
+  const ringing = status === "ringing";
+  const live = status === "active" || ringing;
   const media = useLocalMedia(live, { name: me.name, color: me.color });
-  const peerStream = useDemoPeerMedia(live, peer);
+  const peerStream = useDemoPeerMedia(status === "active", peer);
   const [pending, start] = useTransition();
   const router = useRouter();
+  const answeredRef = useRef(false);
+
+  // Ring while status is ringing; auto-answer after ~1.8s with connected chirp
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+
+    (async () => {
+      await armCallAudio();
+      if (cancelled) return;
+      if (ringing) {
+        void startRelayRing();
+        timer = setTimeout(() => {
+          if (cancelled || answeredRef.current) return;
+          answeredRef.current = true;
+          start(async () => {
+            stopRelayRing();
+            await answerDirectCall(callId);
+            await playRelayConnected();
+            router.refresh();
+          });
+        }, 1800);
+      } else {
+        stopRelayRing();
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      stopRelayRing();
+    };
+  }, [ringing, callId, router, start]);
 
   return (
     <div id="call-stage" className="relative h-full w-full overflow-hidden bg-[#07090c]">
-      {/* Remote fills the stage (app main pane only — not browser chrome) */}
       <VideoTile
-        stream={peerStream}
+        stream={status === "active" ? peerStream : null}
         name={peer.name}
         color={peer.color}
-        label="Remote"
+        label={ringing ? "Ringing…" : "Remote"}
         className="absolute inset-0 h-full w-full rounded-none border-0"
       />
 
-      {/* Soft top gradient + identity */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-black/55 via-black/20 to-transparent px-5 pb-16 pt-4">
         <div className="pointer-events-auto flex flex-wrap items-center gap-2">
-          <Badge tone="success">Connected</Badge>
+          <Badge tone={ringing ? "warn" : "success"}>
+            {ringing ? "Ringing" : "Connected"}
+          </Badge>
           {privacyMode && <Badge tone="success">Private</Badge>}
           <p className="text-sm font-medium text-white drop-shadow">{peer.name}</p>
           <p className="text-xs text-white/65">{peer.title}</p>
         </div>
+        {ringing && (
+          <p className="mt-2 text-[11px] text-white/70">
+            Relay ring motif playing — connecting shortly…
+          </p>
+        )}
         {media.error && (
           <p className="pointer-events-auto mt-2 max-w-lg rounded-md bg-black/50 px-2.5 py-1.5 text-[11px] text-warn">
             {media.error}
@@ -66,7 +116,6 @@ export function DirectCallRoom({
         )}
       </div>
 
-      {/* Local PiP — draggable */}
       <DraggablePip width={208} height={132}>
         <VideoTile
           stream={media.stream}
@@ -80,7 +129,6 @@ export function DirectCallRoom({
         />
       </DraggablePip>
 
-      {/* Call controls — floating enterprise bar */}
       <div className="absolute inset-x-0 bottom-0 z-20 flex justify-center bg-gradient-to-t from-black/70 via-black/35 to-transparent px-4 pb-5 pt-12">
         <div
           className={cn(
@@ -93,7 +141,7 @@ export function DirectCallRoom({
           <Button
             variant="secondary"
             size="icon"
-            disabled={!live}
+            disabled={!live || ringing}
             onClick={media.toggleMute}
             title={media.muted ? "Unmute" : "Mute"}
             className="border-white/10 bg-white/5 text-white hover:bg-white/10"
@@ -103,7 +151,7 @@ export function DirectCallRoom({
           <Button
             variant="secondary"
             size="icon"
-            disabled={!live}
+            disabled={!live || ringing}
             onClick={media.toggleCam}
             title={media.camOff ? "Camera on" : "Camera off"}
             className="border-white/10 bg-white/5 text-white hover:bg-white/10"
@@ -123,7 +171,7 @@ export function DirectCallRoom({
           <Button
             size="sm"
             variant={privacyMode ? "success" : "secondary"}
-            disabled={pending || !live}
+            disabled={pending || !live || ringing}
             aria-pressed={privacyMode}
             className={
               privacyMode
@@ -151,6 +199,8 @@ export function DirectCallRoom({
             disabled={pending || !live}
             onClick={() =>
               start(async () => {
+                stopRelayRing();
+                await playRelayHangup();
                 media.stop();
                 await endDirectCall(callId);
                 router.push("/people");
