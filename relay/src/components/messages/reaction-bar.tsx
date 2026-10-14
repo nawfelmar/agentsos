@@ -16,11 +16,13 @@ export function ReactionBar({
   channelSlug,
   reactions,
   currentUserId,
+  compact = false,
 }: {
   messageId: string
   channelSlug: string
   reactions: { id: string; emoji: string; userId: string }[]
   currentUserId: string
+  compact?: boolean
 }) {
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -36,7 +38,8 @@ export function ReactionBar({
   return (
     <div
       className={cn(
-        "mt-1.5 flex flex-wrap gap-1 transition-opacity",
+        "flex flex-wrap gap-1 transition-opacity duration-150",
+        compact ? "mt-0.5" : "mt-1.5",
         hasAny ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"
       )}
     >
@@ -53,10 +56,11 @@ export function ReactionBar({
             })
           }
           className={cn(
-            "relay-focus inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-[11px] tabular-nums",
+            "relay-focus inline-flex h-6 items-center gap-1 border px-1.5 text-[11px] tabular-nums transition-colors",
+            compact ? "rounded-full" : "rounded-md",
             g.mine
-              ? "border-accent/35 bg-accent-dim text-accent"
-              : "border-line/80 bg-surface/80 text-muted hover:border-line-strong hover:text-ink"
+              ? "border-accent/40 bg-accent-dim text-accent"
+              : "border-line/70 bg-surface/60 text-muted hover:border-line-strong hover:bg-surface-2 hover:text-ink"
           )}
         >
           <span className="leading-none">{g.emoji}</span>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { Hash, Lock, MessagesSquare } from "lucide-react";
+import { Hash, Lock, Phone } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -37,10 +37,13 @@ export default async function ChannelPage({ params }: { params: { slug: string }
       unread={notifications.filter((n) => !n.read).length}
       header={
         <div className="flex min-w-0 items-center gap-2">
-          <Link href="/messages" className="shrink-0 text-xs text-faint hover:text-ink">
+          <Link
+            href="/messages"
+            className="shrink-0 text-xs text-faint transition-colors hover:text-ink"
+          >
             Messages
           </Link>
-          <span className="text-faint">/</span>
+          <span className="text-faint/60">/</span>
           <p className="truncate text-sm font-medium text-ink">
             {isDm ? title : `#${title}`}
           </p>
@@ -48,7 +51,7 @@ export default async function ChannelPage({ params }: { params: { slug: string }
       }
       contextTitle={isDm ? "Direct message" : "Channel"}
       context={
-        <div className="space-y-4 text-xs text-muted">
+        <div className="space-y-5 text-xs text-muted">
           {isDm && peer ? (
             <div className="flex items-start gap-3">
               <Avatar name={peer.name} color={peer.avatarColor} status={peer.status} size="lg" />
@@ -60,10 +63,10 @@ export default async function ChannelPage({ params }: { params: { slug: string }
             </div>
           ) : (
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-faint">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">
                 About
               </p>
-              <p className="mt-1 leading-relaxed text-ink">
+              <p className="mt-1.5 leading-relaxed text-ink">
                 {channel.description ?? "No description"}
               </p>
             </div>
@@ -74,10 +77,10 @@ export default async function ChannelPage({ params }: { params: { slug: string }
           </div>
           {channel.project && (
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-faint">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">
                 Project
               </p>
-              <p className="mt-1 text-ink">
+              <p className="mt-1.5 text-ink">
                 {channel.project.key} · {channel.project.name}
               </p>
             </div>
@@ -102,45 +105,73 @@ export default async function ChannelPage({ params }: { params: { slug: string }
         </div>
       }
     >
-      <div className="flex h-[calc(100vh-3rem)] flex-col bg-canvas/40">
-        {/* Conversation chrome */}
-        <div className="flex shrink-0 items-center gap-3 border-b border-line/80 bg-surface/60 px-4 py-3 md:px-8">
-          <div className="flex h-9 w-9 items-center justify-center rounded-relay border border-line bg-surface-2 text-accent">
-            {isDm ? (
-              peer ? (
-                <Avatar name={peer.name} color={peer.avatarColor} status={peer.status} />
+      <div className="relative flex h-[calc(100vh-3rem)] flex-col">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-60"
+          style={{
+            background:
+              "radial-gradient(720px 280px at 50% 0%, rgba(61,139,253,0.06), transparent 60%)",
+          }}
+        />
+
+        <div className="relative flex shrink-0 items-center gap-3.5 border-b border-line/70 bg-surface/40 px-4 py-3.5 backdrop-blur-md md:px-8">
+          {isDm && peer ? (
+            <Avatar name={peer.name} color={peer.avatarColor} status={peer.status} size="lg" />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-surface-2 text-accent">
+              {channel.type === "private" ? (
+                <Lock className="h-4 w-4" />
               ) : (
-                <MessagesSquare className="h-4 w-4" />
-              )
-            ) : channel.type === "private" ? (
-              <Lock className="h-4 w-4" />
-            ) : (
-              <Hash className="h-4 w-4" />
-            )}
-          </div>
+                <Hash className="h-4 w-4" />
+              )}
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate font-display text-base tracking-tight text-ink">
+              <h1 className="truncate font-display text-[17px] tracking-tight text-ink">
                 {isDm ? title : `#${title}`}
               </h1>
               {isDm && peer && (
-                <Badge tone={peer.status === "online" ? "success" : "muted"}>
+                <span
+                  className={
+                    peer.status === "online"
+                      ? "inline-flex items-center gap-1.5 text-[11px] text-success"
+                      : "inline-flex items-center gap-1.5 text-[11px] text-faint"
+                  }
+                >
+                  <span
+                    className={
+                      peer.status === "online"
+                        ? "h-1.5 w-1.5 rounded-full bg-success"
+                        : "h-1.5 w-1.5 rounded-full bg-faint"
+                    }
+                  />
                   {peer.status}
-                </Badge>
+                </span>
               )}
             </div>
-            <p className="truncate text-[12px] text-muted">
+            <p className="mt-0.5 truncate text-[12px] text-muted">
               {isDm
                 ? peer?.title ?? "Direct message"
                 : channel.description ?? `${channel.members.length} members`}
             </p>
           </div>
-          <Badge tone="muted" className="hidden sm:inline-flex">
-            {channel.messages.length} messages
-          </Badge>
+          {isDm ? (
+            <Link
+              href="/people"
+              className="relay-focus hidden items-center gap-1.5 rounded-relay border border-line bg-surface-2/80 px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-line-strong hover:text-ink sm:inline-flex"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              Call
+            </Link>
+          ) : (
+            <span className="hidden font-mono text-[11px] text-faint sm:inline">
+              {channel.messages.length} msgs
+            </span>
+          )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="relative min-h-0 flex-1 overflow-y-auto">
           <MessageThread
             messages={channel.messages}
             currentUserId={user.id}
@@ -149,14 +180,16 @@ export default async function ChannelPage({ params }: { params: { slug: string }
           />
         </div>
 
-        <MessageComposer
-          channelSlug={channel.slug}
-          placeholder={
-            isDm
-              ? `Message ${peer?.name.split(" ")[0] ?? "them"}…`
-              : `Message #${channel.name}…`
-          }
-        />
+        <div className="relative">
+          <MessageComposer
+            channelSlug={channel.slug}
+            placeholder={
+              isDm
+                ? `Message ${peer?.name.split(" ")[0] ?? "them"}…`
+                : `Message #${channel.name}…`
+            }
+          />
+        </div>
       </div>
     </AppShell>
   );

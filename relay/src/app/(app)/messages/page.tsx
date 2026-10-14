@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Hash, Lock, MessagesSquare } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
-import { Badge } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
 import { formatRelative } from "@/lib/utils";
 import { ensureSeeded } from "@/lib/ensure-seeded";
 import { getChannels, getCurrentUser, getNotifications } from "@/lib/queries";
@@ -25,19 +25,21 @@ export default async function MessagesIndexPage() {
       unread={notifications.filter((n) => !n.read).length}
       header={
         <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-faint">Messages</p>
+          <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-faint">
+            Messages
+          </p>
           <p className="text-sm font-medium text-ink">Inbox</p>
         </div>
       }
       contextTitle="Inbox"
       context={
         <p className="text-xs leading-relaxed text-muted">
-          DMs and channels share one thread model. Open a conversation to write, react, or summarize
-          with Relay.
+          DMs and channels share one thread model. Open a conversation to write, react, or
+          summarize with Relay.
         </p>
       }
     >
-      <div className="mx-auto grid max-w-5xl gap-6 p-5 md:grid-cols-2 md:p-6">
+      <div className="mx-auto grid max-w-5xl gap-8 p-5 md:grid-cols-2 md:p-8">
         <ConversationList title="Direct & group" items={dms} kind="dm" />
         <ConversationList title="Channels" items={chans} kind="channel" />
       </div>
@@ -55,31 +57,39 @@ function ConversationList({
   kind: "dm" | "channel"
 }) {
   return (
-    <section className="overflow-hidden rounded-relay border border-line bg-surface/50">
-      <div className="flex items-center justify-between border-b border-line px-4 py-3">
-        <h2 className="text-sm font-semibold text-ink">{title}</h2>
-        <span className="text-[11px] text-faint">{items.length}</span>
+    <section>
+      <div className="mb-3 flex items-baseline justify-between px-0.5">
+        <h2 className="font-display text-base tracking-tight text-ink">{title}</h2>
+        <span className="font-mono text-[11px] text-faint">{items.length}</span>
       </div>
-      <ul className="divide-y divide-line/70">
+      <ul className="overflow-hidden rounded-2xl border border-line/80 bg-surface/40 shadow-panel">
         {items.length === 0 && (
-          <li className="px-4 py-8 text-center text-xs text-faint">Nothing here yet</li>
+          <li className="px-4 py-10 text-center text-xs text-faint">Nothing here yet</li>
         )}
-        {items.map((c) => {
+        {items.map((c, i) => {
           const last = c.messages[0];
           const Icon =
             kind === "dm" ? MessagesSquare : c.type === "private" ? Lock : Hash;
           return (
-            <li key={c.id}>
+            <li key={c.id} className={i > 0 ? "border-t border-line/60" : undefined}>
               <Link
                 href={`/messages/${c.slug}`}
-                className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-surface-2/60"
+                className="flex items-start gap-3 px-4 py-3.5 transition-colors hover:bg-surface-2/50"
               >
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-relay border border-line bg-surface-2 text-accent">
-                  <Icon className="h-4 w-4" />
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line bg-surface-2 text-accent">
+                  {kind === "dm" && last ? (
+                    <Avatar
+                      name={last.author.name}
+                      color={last.author.avatarColor}
+                      size="md"
+                    />
+                  ) : (
+                    <Icon className="h-4 w-4" />
+                  )}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-medium text-ink">
+                    <p className="truncate text-sm font-medium tracking-tight text-ink">
                       {kind === "channel" ? `#${c.name}` : c.name}
                     </p>
                     {last && (
@@ -89,16 +99,13 @@ function ConversationList({
                     )}
                   </div>
                   {last ? (
-                    <p className="mt-0.5 truncate text-[12px] text-muted">
-                      <span className="text-faint">{last.author.name}: </span>
+                    <p className="mt-1 truncate text-[12.5px] leading-snug text-muted">
+                      <span className="text-faint">{last.author.name.split(" ")[0]} · </span>
                       {last.body}
                     </p>
                   ) : (
-                    <p className="mt-0.5 text-[12px] text-faint">No messages yet</p>
+                    <p className="mt-1 text-[12px] text-faint">No messages yet</p>
                   )}
-                  <div className="mt-1.5">
-                    <Badge tone="muted">{c.type}</Badge>
-                  </div>
                 </div>
               </Link>
             </li>
