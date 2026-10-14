@@ -5,14 +5,21 @@ import { AppShell } from "@/components/shell/app-shell";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ChannelChat } from "@/components/messages/channel-chat";
+import { ConversationRail } from "@/components/messages/conversation-rail";
 import { ensureSeeded } from "@/lib/ensure-seeded";
-import { getChannelBySlug, getCurrentUser, getNotifications } from "@/lib/queries";
+import {
+  getChannelBySlug,
+  getConversations,
+  getCurrentUser,
+  getNotifications,
+} from "@/lib/queries";
 
 export default async function ChannelPage({ params }: { params: { slug: string } }) {
   if (!(await ensureSeeded())) redirect("/setup");
-  const [user, channel, notifications] = await Promise.all([
+  const [user, channel, conversations, notifications] = await Promise.all([
     getCurrentUser(),
     getChannelBySlug(params.slug),
+    getConversations(),
     getNotifications(),
   ]);
   if (!user) redirect("/setup");
@@ -24,11 +31,7 @@ export default async function ChannelPage({ params }: { params: { slug: string }
       ? channel.members.map((m) => m.user).find((u) => u.id !== user.id) ?? null
       : null;
 
-  const title = isDm
-    ? peer?.name ?? channel.name
-    : channel.type === "private"
-      ? channel.name
-      : channel.name;
+  const title = isDm ? peer?.name ?? channel.name : channel.name;
 
   return (
     <AppShell
@@ -38,11 +41,11 @@ export default async function ChannelPage({ params }: { params: { slug: string }
         <div className="flex min-w-0 items-center gap-2">
           <Link
             href="/messages"
-            className="shrink-0 text-xs text-faint transition-colors hover:text-ink"
+            className="shrink-0 text-xs text-faint transition-colors hover:text-ink md:hidden"
           >
             Messages
           </Link>
-          <span className="text-faint/60">/</span>
+          <span className="text-faint/60 md:hidden">/</span>
           <p className="truncate text-sm font-medium text-ink">
             {isDm ? title : `#${title}`}
           </p>
@@ -104,83 +107,93 @@ export default async function ChannelPage({ params }: { params: { slug: string }
         </div>
       }
     >
-      <div className="relative flex h-[calc(100vh-3rem)] flex-col">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-60"
-          style={{
-            background:
-              "radial-gradient(720px 280px at 50% 0%, rgba(61,139,253,0.06), transparent 60%)",
-          }}
-        />
+      <div className="flex h-[calc(100vh-3rem)]">
+        <div className="hidden h-full md:flex">
+          <ConversationRail
+            conversations={conversations}
+            currentUserId={user.id}
+            activeSlug={channel.slug}
+          />
+        </div>
 
-        <div className="relative flex shrink-0 items-center gap-3.5 border-b border-line/70 bg-surface/40 px-4 py-3.5 backdrop-blur-md md:px-8">
-          {isDm && peer ? (
-            <Avatar name={peer.name} color={peer.avatarColor} status={peer.status} size="lg" />
-          ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-surface-2 text-accent">
-              {channel.type === "private" ? (
-                <Lock className="h-4 w-4" />
-              ) : (
-                <Hash className="h-4 w-4" />
-              )}
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate font-display text-[17px] tracking-tight text-ink">
-                {isDm ? title : `#${title}`}
-              </h1>
-              {isDm && peer && (
-                <span
-                  className={
-                    peer.status === "online"
-                      ? "inline-flex items-center gap-1.5 text-[11px] text-success"
-                      : "inline-flex items-center gap-1.5 text-[11px] text-faint"
-                  }
-                >
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-60"
+            style={{
+              background:
+                "radial-gradient(720px 280px at 50% 0%, rgba(61,139,253,0.06), transparent 60%)",
+            }}
+          />
+
+          <div className="relative flex shrink-0 items-center gap-3.5 border-b border-line/70 bg-surface/40 px-4 py-3.5 backdrop-blur-md md:px-6">
+            {isDm && peer ? (
+              <Avatar name={peer.name} color={peer.avatarColor} status={peer.status} size="lg" />
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-surface-2 text-accent">
+                {channel.type === "private" ? (
+                  <Lock className="h-4 w-4" />
+                ) : (
+                  <Hash className="h-4 w-4" />
+                )}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="truncate font-display text-[17px] tracking-tight text-ink">
+                  {isDm ? title : `#${title}`}
+                </h1>
+                {isDm && peer && (
                   <span
                     className={
                       peer.status === "online"
-                        ? "h-1.5 w-1.5 rounded-full bg-success"
-                        : "h-1.5 w-1.5 rounded-full bg-faint"
+                        ? "inline-flex items-center gap-1.5 text-[11px] text-success"
+                        : "inline-flex items-center gap-1.5 text-[11px] text-faint"
                     }
-                  />
-                  {peer.status}
-                </span>
-              )}
+                  >
+                    <span
+                      className={
+                        peer.status === "online"
+                          ? "h-1.5 w-1.5 rounded-full bg-success"
+                          : "h-1.5 w-1.5 rounded-full bg-faint"
+                      }
+                    />
+                    {peer.status}
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 truncate text-[12px] text-muted">
+                {isDm
+                  ? peer?.title ?? "Direct message"
+                  : channel.description ?? `${channel.members.length} members`}
+              </p>
             </div>
-            <p className="mt-0.5 truncate text-[12px] text-muted">
-              {isDm
-                ? peer?.title ?? "Direct message"
-                : channel.description ?? `${channel.members.length} members`}
-            </p>
+            {isDm ? (
+              <Link
+                href="/people"
+                className="relay-focus hidden items-center gap-1.5 rounded-relay border border-line bg-surface-2/80 px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-line-strong hover:text-ink sm:inline-flex"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                Call
+              </Link>
+            ) : (
+              <span className="hidden font-mono text-[11px] text-faint sm:inline">
+                {channel.messages.length} msgs
+              </span>
+            )}
           </div>
-          {isDm ? (
-            <Link
-              href="/people"
-              className="relay-focus hidden items-center gap-1.5 rounded-relay border border-line bg-surface-2/80 px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-line-strong hover:text-ink sm:inline-flex"
-            >
-              <Phone className="h-3.5 w-3.5" />
-              Call
-            </Link>
-          ) : (
-            <span className="hidden font-mono text-[11px] text-faint sm:inline">
-              {channel.messages.length} msgs
-            </span>
-          )}
-        </div>
 
-        <ChannelChat
-          messages={channel.messages}
-          currentUserId={user.id}
-          channelSlug={channel.slug}
-          isDm={isDm}
-          placeholder={
-            isDm
-              ? `Message ${peer?.name.split(" ")[0] ?? "them"}…`
-              : `Message #${channel.name}…`
-          }
-        />
+          <ChannelChat
+            messages={channel.messages}
+            currentUserId={user.id}
+            channelSlug={channel.slug}
+            isDm={isDm}
+            placeholder={
+              isDm
+                ? `Message ${peer?.name.split(" ")[0] ?? "them"}…`
+                : `Message #${channel.name}…`
+            }
+          />
+        </div>
       </div>
     </AppShell>
   );

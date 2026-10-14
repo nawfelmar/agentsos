@@ -137,6 +137,20 @@ export async function getChannels() {
   });
 }
 
+/** Conversations for the messages rail — newest activity first (messaging-app order). */
+export async function getConversations() {
+  const channels = await getChannels();
+  return [...channels].sort((a, b) => {
+    const aAt = a.messages[0]?.createdAt
+      ? new Date(a.messages[0].createdAt).getTime()
+      : new Date(a.createdAt).getTime();
+    const bAt = b.messages[0]?.createdAt
+      ? new Date(b.messages[0].createdAt).getTime()
+      : new Date(b.createdAt).getTime();
+    return bAt - aAt;
+  });
+}
+
 export async function getChannelBySlug(slug: string) {
   return prisma.channel.findFirst({
     where: { slug },
