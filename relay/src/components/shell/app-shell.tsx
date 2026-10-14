@@ -5,6 +5,8 @@ import { PanelRight } from "lucide-react";
 import { Sidebar } from "./sidebar";
 import { RightPanel } from "./right-panel";
 import { Button } from "@/components/ui/button";
+import { OngoingCallBar } from "@/components/calls/ongoing-call-bar";
+import type { ActiveDirectCallSummary } from "@/lib/actions/direct-call";
 
 export function AppShell({
   user,
@@ -15,6 +17,8 @@ export function AppShell({
   header,
   /** Immersive call layout: collapse nav, fill main, keep right board open */
   callMode = false,
+  /** Optional SSR seed for the global ongoing-call chrome */
+  activeCall = null,
 }: {
   user: {
     name: string
@@ -29,6 +33,7 @@ export function AppShell({
   children: React.ReactNode
   header?: React.ReactNode
   callMode?: boolean
+  activeCall?: ActiveDirectCallSummary | null
 }) {
   const [collapsed, setCollapsed] = useState(callMode);
   const [panelOpen, setPanelOpen] = useState(Boolean(context));
@@ -44,6 +49,7 @@ export function AppShell({
         />
       )}
       <div className="flex min-w-0 flex-1 flex-col">
+        <OngoingCallBar initial={activeCall} hideOnCallPage />
         <header
           className={
             callMode

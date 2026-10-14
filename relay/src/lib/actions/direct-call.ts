@@ -20,6 +20,45 @@ export async function userIsInDirectCall(userId: string) {
   return Boolean(open);
 }
 
+export type ActiveDirectCallSummary = {
+  id: string
+  status: string
+  privacyMode: boolean
+  startedAt: string
+  answeredAt: string | null
+  peerName: string
+  peerTitle: string
+  peerColor: string
+  peerId: string
+};
+
+/** Serializable summary for the global ongoing-call chrome. */
+export async function getActiveDirectCallSummary(): Promise<ActiveDirectCallSummary | null> {
+  const me = await prisma.user.findFirst({ where: { isCurrentUser: true } });
+  if (!me) return null;
+  const call = await prisma.directCall.findFirst({
+    where: {
+      status: { in: ["ringing", "active"] },
+      OR: [{ callerId: me.id }, { calleeId: me.id }],
+    },
+    include: { caller: true, callee: true },
+    orderBy: { startedAt: "desc" },
+  });
+  if (!call) return null;
+  const peer = call.callerId === me.id ? call.callee : call.caller;
+  return {
+    id: call.id,
+    status: call.status,
+    privacyMode: call.privacyMode,
+    startedAt: call.startedAt.toISOString(),
+    answeredAt: call.answeredAt?.toISOString() ?? null,
+    peerName: peer.name,
+    peerTitle: peer.title,
+    peerColor: peer.avatarColor,
+    peerId: peer.id,
+  };
+}
+
 /** Start a 1:1 direct call with another person. Fails if you are already in a call. */
 export async function startDirectCall(calleeId: string) {
   const me = await requireCurrentUser();
@@ -128,7 +167,9 @@ export async function endDirectCall(callId: string) {
     },
   });
 
+  revalidatePath("/");
   revalidatePath("/people");
+  revalidatePath("/messages");
   revalidatePath(`/calls/${callId}`);
   revalidatePath("/activity");
   return { ok: true as const };
