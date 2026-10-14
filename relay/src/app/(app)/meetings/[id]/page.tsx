@@ -81,6 +81,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           status={meeting.status}
           topic={meeting.purpose ?? meeting.title}
           positions={outcomes.positions ?? null}
+          privacyMode={meeting.privacyMode}
           participants={meeting.participants.map((p) => ({
             id: p.id,
             userId: p.userId,
@@ -119,6 +120,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
             meetingId={meeting.id}
             status={meeting.status}
             summary={outcomes.structured ?? null}
+            privacyMode={meeting.privacyMode}
           />
           <div className="space-y-4">
             <section className="rounded-relay border border-line bg-surface/60 p-4">
@@ -138,8 +140,35 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
             <section className="rounded-relay border border-line bg-surface/60 p-4">
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-faint">
                 Decisions & actions
+                {meeting.privacyMode ? " · in-meeting only" : ""}
               </p>
-              {meeting.decisions.length === 0 && meeting.actionItems.length === 0 ? (
+              {meeting.privacyMode ? (
+                outcomes.structured ? (
+                  <ul className="space-y-2">
+                    {outcomes.structured.decisions.map((d, i) => (
+                      <li key={`pd-${i}`} className="text-xs">
+                        <Badge tone="success">decision</Badge>
+                        <p className="mt-1 text-ink">{d.text}</p>
+                      </li>
+                    ))}
+                    {outcomes.structured.actionItems.map((a, i) => (
+                      <li key={`pa-${i}`} className="text-xs">
+                        <Badge tone="accent">action</Badge>
+                        <p className="mt-1 text-ink">{a.text}</p>
+                        <p className="text-faint">
+                          {a.owner}
+                          {a.due ? ` · ${a.due}` : ""}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-muted">
+                    Privacy mode keeps outcomes in this room — generate a summary to see them here
+                    without syncing to the project.
+                  </p>
+                )
+              ) : meeting.decisions.length === 0 && meeting.actionItems.length === 0 ? (
                 <p className="text-xs text-muted">Appear when you end & summarize the meeting.</p>
               ) : (
                 <ul className="space-y-2">
