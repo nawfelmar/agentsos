@@ -8,6 +8,8 @@ export const DEMO = {
 export function integrationLabel(kind: "llm" | "av" | "calendar") {
   if (kind === "llm") return DEMO.hasLlm ? "Live model" : "Demo AI";
   if (kind === "av")
-    return DEMO.hasAv ? "Live A/V (LiveKit)" : "Local camera/mic · demo peer stream";
+    return DEMO.hasAv
+      ? "Live A/V (LiveKit)"
+      : "Local camera/mic · stock peer video";
   return DEMO.hasCalendar ? "Live calendar" : "Demo calendar";
 }

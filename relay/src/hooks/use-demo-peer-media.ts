@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { createSyntheticMediaStream } from "@/lib/media/synthetic-stream";
+import { createVideoFileMediaStream } from "@/lib/media/video-file-stream";
 
-/** Synthetic peer MediaStream for single-browser 1:1 demos. */
+const DEMO_PEER_VIDEO = "/media/demo-peer.mp4";
+
+/** Demo peer MediaStream: looping stock video, with canvas fallback. */
 export function useDemoPeerMedia(
   active: boolean,
   peer: { name: string; color: string }
@@ -15,14 +18,38 @@ export function useDemoPeerMedia(
       setStream(null);
       return;
     }
-    const syn = createSyntheticMediaStream({
-      name: peer.name,
-      color: peer.color,
-      subtitle: "Connected · demo peer stream",
+
+    let syn: { stream: MediaStream; stop: () => void } | null = null;
+    let usingFile = false;
+
+    const fromFile = createVideoFileMediaStream(DEMO_PEER_VIDEO, (ready) => {
+      if (ready.getVideoTracks().length > 0) {
+        usingFile = true;
+        syn?.stop();
+        syn = null;
+        setStream(ready);
+      }
     });
-    setStream(syn.stream);
+
+    // Fallback if the file can't produce a video track quickly
+    const timer = window.setTimeout(() => {
+      if (usingFile || fromFile.stream.getVideoTracks().length > 0) {
+        usingFile = true;
+        setStream(fromFile.stream);
+        return;
+      }
+      syn = createSyntheticMediaStream({
+        name: peer.name,
+        color: peer.color,
+        subtitle: "Connected · demo peer stream",
+      });
+      setStream(syn.stream);
+    }, 900);
+
     return () => {
-      syn.stop();
+      window.clearTimeout(timer);
+      fromFile.stop();
+      syn?.stop();
       setStream(null);
     };
   }, [active, peer.color, peer.name]);
