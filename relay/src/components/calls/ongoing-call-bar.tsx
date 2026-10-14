@@ -7,8 +7,7 @@ import { Phone, PhoneOff, Maximize2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { VideoTile } from "@/components/calls/video-tile";
-import { useDemoPeerMedia } from "@/hooks/use-demo-peer-media";
+import { DEMO_PEER_MEDIA } from "@/lib/media/demo-media";
 import {
   endDirectCall,
   getActiveDirectCallSummary,
@@ -70,13 +69,6 @@ export function OngoingCallBar({
     const id = window.setInterval(() => setTick((t) => t + 1), 1000);
     return () => window.clearInterval(id);
   }, [call?.id]);
-
-  const peerStream = useDemoPeerMedia(
-    Boolean(call && call.status === "active" && !onCallPage),
-    call
-      ? { name: call.peerName, color: call.peerColor }
-      : { name: "Peer", color: "#5B8DEF" }
-  );
 
   if (!call) return null;
   if (hideOnCallPage && onCallPage) return null;
@@ -168,20 +160,25 @@ export function OngoingCallBar({
           className="group fixed bottom-4 right-4 z-50 block w-[200px] overflow-hidden rounded-relay border border-white/15 bg-[#0a0d12] shadow-pop transition hover:border-accent/40 md:bottom-5 md:right-5 md:w-[240px]"
           title="Return to call"
         >
-          <div className="aspect-video w-full">
-            <VideoTile
-              stream={peerStream}
-              name={call.peerName}
-              color={call.peerColor}
-              playAudio={false}
-              label="Live · tap to return"
-              className="h-full w-full rounded-none border-0"
+          <div className="relative aspect-video w-full bg-surface-2">
+            <video
+              src={DEMO_PEER_MEDIA}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="h-full w-full object-cover"
             />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-2.5 pb-2 pt-6">
+              <p className="truncate text-[11px] font-medium text-white">{call.peerName}</p>
+              <p className="text-[10px] text-white/70">Live · tap to return</p>
+            </div>
+            <span className="absolute left-2 top-2 rounded bg-success/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-white">
+              Live
+            </span>
           </div>
           <div className="flex items-center justify-between gap-2 border-t border-white/10 px-2.5 py-1.5">
-            <span className="truncate text-[11px] font-medium text-white">
-              {call.peerName}
-            </span>
+            <span className="truncate text-[11px] text-white/80">{call.peerTitle}</span>
             <span className="font-mono text-[10px] text-success">
               {elapsedLabel(call.answeredAt ?? call.startedAt)}
             </span>
