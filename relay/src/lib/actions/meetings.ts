@@ -43,7 +43,7 @@ export async function createMeeting(input: {
           { userId: user.id, role: "organizer", response: "accepted" },
           ...input.participantIds
             .filter((id) => id !== user.id)
-            .map((userId) => ({ userId, role: "required", response: "pending" })),
+            .map((userId) => ({ userId, role: "required", response: "accepted" })),
         ],
       },
     },
@@ -51,6 +51,139 @@ export async function createMeeting(input: {
 
   revalidatePath("/meetings");
   revalidatePath("/calendar");
+  return { ok: true as const, id: meeting.id };
+}
+
+/** One-click dummy meeting with a bunch of dummy employees + statement highlights. */
+export async function createDummyMeeting(templateIndex?: number) {
+  const { DUMMY_MEETING_TEMPLATES } = await import("@/lib/domain/dummy-org");
+  const user = await prisma.user.findFirst({ where: { isCurrentUser: true } });
+  if (!user) throw new Error("No user");
+
+  const employees = await prisma.user.findMany({
+    where: { organizationId: user.organizationId },
+    orderBy: { name: "asc" },
+  });
+  if (employees.length < 3) throw new Error("Need more employees — run npm run db:seed");
+
+  const idx =
+    typeof templateIndex === "number"
+      ? templateIndex % DUMMY_MEETING_TEMPLATES.length
+      : Math.floor(Math.random() * DUMMY_MEETING_TEMPLATES.length);
+  const template = DUMMY_MEETING_TEMPLATES[idx]!;
+
+  // Invite 5–8 people including current user
+  const others = employees.filter((e) => e.id !== user.id);
+  const shuffled = [...others].sort(() => Math.random() - 0.5);
+  const inviteCount = Math.min(7, Math.max(5, shuffled.length));
+  const invitees = shuffled.slice(0, inviteCount);
+
+  const start = new Date(Date.now() + 45 * 60_000);
+  const end = new Date(start.getTime() + 30 * 60_000);
+
+  const participants = [user, ...invitees];
+  const positions = buildDemoMeetingPositions({
+    title: template.title,
+    purpose: template.purpose,
+    participants: participants.map((p) => ({
+      name: p.name,
+      title: p.title,
+      color: p.avatarColor,
+    })),
+    isAiProposed: false,
+  });
+
+  // Enrich positions so every invitee has a stance on the shared board
+  const stances = ["for", "against", "conditional", "questioning", "neutral"] as const;
+  const highlights = participants.map((p, i) => {
+    const existing = positions.highlights.find((h) => h.speaker === p.name);
+    if (existing) return existing;
+    const stance = stances[i % stances.length]!;
+    const lines: Record<(typeof stances)[number], { position: string; highlight: string }> = {
+      for: {
+        position: `Supports moving ahead on “${template.title}” with clear owners.`,
+        highlight: `I'm good to proceed if we name owners in this room.`,
+      },
+      against: {
+        position: `Wants to slow down — sees unresolved risk in the current plan.`,
+        highlight: `We're not ready. Shipping this without the open risks closed is a mistake.`,
+      },
+      conditional: {
+        position: `OK to proceed only if a named condition is met this week.`,
+        highlight: `I'll support the plan if we lock the dependency ETA before Friday.`,
+      },
+      questioning: {
+        position: `Still needs clarity before taking a side.`,
+        highlight: `What does success look like by EOD Thursday? I need that spelled out.`,
+      },
+      neutral: {
+        position: `Facilitating — not staking a product/engineering position yet.`,
+        highlight: `I'll track decisions and make sure every open question has an owner.`,
+      },
+    };
+    return {
+      id: `hl_dummy_${p.id}`,
+      speaker: p.name,
+      stance,
+      position: lines[stance].position,
+      highlight: lines[stance].highlight,
+      topic: template.purpose,
+      atLabel: `0${(i % 9) + 1}:${10 + i}`,
+    };
+  });
+
+  const meeting = await prisma.meeting.create({
+    data: {
+      organizationId: user.organizationId,
+      title: template.title,
+      purpose: template.purpose,
+      status: "scheduled",
+      startAt: start,
+      endAt: end,
+      demoMode: true,
+      isAiProposed: false,
+      preparationStatus: "ready",
+      agendaJson: JSON.stringify(template.agenda),
+      outcomesJson: JSON.stringify({
+        positions: {
+          ...positions,
+          topic: template.purpose,
+          highlights,
+          alignmentLabel: "Dummy meeting — positions seeded for the shared board",
+          mode: "demo",
+          generatedAt: new Date().toISOString(),
+        },
+      }),
+      participants: {
+        create: [
+          { userId: user.id, role: "organizer", response: "accepted" },
+          ...invitees.map((e) => ({
+            userId: e.id,
+            role: "required" as const,
+            response: "accepted",
+          })),
+        ],
+      },
+    },
+  });
+
+  await prisma.notification.create({
+    data: {
+      organizationId: user.organizationId,
+      userId: user.id,
+      kind: "meeting",
+      title: "Dummy meeting created",
+      body: `“${meeting.title}” with ${invitees.length + 1} employees is on the board.`,
+      href: `/meetings/${meeting.id}`,
+      read: false,
+    },
+  });
+
+  revalidatePath("/meetings");
+  revalidatePath(`/meetings/${meeting.id}`);
+  revalidatePath("/calendar");
+  revalidatePath("/activity");
+  revalidatePath("/people");
   return { ok: true as const, id: meeting.id };
 }
 

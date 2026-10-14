@@ -1,5 +1,6 @@
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
+import { DUMMY_EMPLOYEES } from "../src/lib/domain/dummy-org";
 
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = `file:${path.join(process.cwd(), "prisma", "dev.db")}`;
@@ -39,74 +40,19 @@ async function main() {
   });
 
   const users = await Promise.all(
-    [
-      {
-        id: "user_alex",
-        email: "alex.rivera@northline.io",
-        name: "Alex Rivera",
-        title: "Staff Engineer",
-        role: "engineer",
-        avatarColor: "#5B8DEF",
-        isCurrentUser: true,
-        status: "online",
-      },
-      {
-        id: "user_maya",
-        email: "maya.chen@northline.io",
-        name: "Maya Chen",
-        title: "Tech Lead · Platform",
-        role: "tech_lead",
-        avatarColor: "#E07A5F",
-        status: "busy",
-      },
-      {
-        id: "user_jordan",
-        email: "jordan.lee@northline.io",
-        name: "Jordan Lee",
-        title: "Senior Engineer · Checkout",
-        role: "engineer",
-        avatarColor: "#81B29A",
-        status: "online",
-      },
-      {
-        id: "user_sam",
-        email: "sam.okonkwo@northline.io",
-        name: "Sam Okonkwo",
-        title: "Product Manager",
-        role: "product",
-        avatarColor: "#F2CC8F",
-        status: "away",
-      },
-      {
-        id: "user_priya",
-        email: "priya.nair@northline.io",
-        name: "Priya Nair",
-        title: "VP Engineering",
-        role: "executive",
-        avatarColor: "#9B8CDB",
-        status: "online",
-      },
-      {
-        id: "user_chris",
-        email: "chris.park@northline.io",
-        name: "Chris Park",
-        title: "Engineer · Payments",
-        role: "engineer",
-        avatarColor: "#4ECDC4",
-        status: "offline",
-      },
-      {
-        id: "user_nina",
-        email: "nina.volkov@northline.io",
-        name: "Nina Volkov",
-        title: "Tech Lead · Checkout",
-        role: "tech_lead",
-        avatarColor: "#FF6B6B",
-        status: "online",
-      },
-    ].map((u) =>
+    DUMMY_EMPLOYEES.map((u) =>
       prisma.user.create({
-        data: { ...u, organizationId: org.id },
+        data: {
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          title: u.title,
+          role: u.role,
+          avatarColor: u.avatarColor,
+          status: u.status,
+          isCurrentUser: "isCurrentUser" in u ? Boolean(u.isCurrentUser) : false,
+          organizationId: org.id,
+        },
       })
     )
   );
@@ -129,16 +75,22 @@ async function main() {
       description: "Cart, payments, order confirmation",
     },
   });
+  const dataTeam = await prisma.team.create({
+    data: {
+      organizationId: org.id,
+      name: "Data",
+      slug: "data",
+      description: "Pipelines, analytics, warehouse",
+    },
+  });
 
+  const teamBySlug = { platform, checkout, data: dataTeam } as const;
   await prisma.teamMembership.createMany({
-    data: [
-      { teamId: platform.id, userId: byId.user_maya.id, role: "lead" },
-      { teamId: platform.id, userId: byId.user_chris.id, role: "member" },
-      { teamId: platform.id, userId: byId.user_alex.id, role: "member" },
-      { teamId: checkout.id, userId: byId.user_nina.id, role: "lead" },
-      { teamId: checkout.id, userId: byId.user_jordan.id, role: "member" },
-      { teamId: checkout.id, userId: byId.user_sam.id, role: "member" },
-    ],
+    data: DUMMY_EMPLOYEES.filter((u) => u.team).map((u) => ({
+      teamId: teamBySlug[u.team as keyof typeof teamBySlug].id,
+      userId: byId[u.id].id,
+      role: u.role === "tech_lead" ? "lead" : "member",
+    })),
   });
 
   const project = await prisma.project.create({

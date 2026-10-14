@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { DemoBanner } from "@/components/ui/demo-banner";
 import { CreateMeetingForm } from "@/components/meetings/create-meeting-form";
+import { CreateDummyMeetingButton } from "@/components/meetings/create-dummy-meeting-button";
 import { ensureSeeded } from "@/lib/ensure-seeded";
 import { getCurrentUser, getMeetings, getNotifications, getUsers } from "@/lib/queries";
 
@@ -33,10 +34,25 @@ export default async function MeetingsPage() {
         </div>
       }
       contextTitle="Create meeting"
-      context={<CreateMeetingForm users={users.filter((u) => !u.isCurrentUser)} />}
+      context={
+        <CreateMeetingForm
+          users={users
+            .filter((u) => !u.isCurrentUser)
+            .map((u) => ({ id: u.id, name: u.name, title: u.title }))}
+        />
+      }
     >
       <div className="mx-auto max-w-5xl space-y-6 p-5 md:p-6">
         <DemoBanner kinds={["av", "calendar"]} />
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-relay border border-line bg-surface/70 px-4 py-3">
+          <div>
+            <p className="text-sm font-medium text-ink">Need a filled demo room?</p>
+            <p className="text-xs text-muted">
+              {users.length} dummy employees available · opens a shared board with positions
+            </p>
+          </div>
+          <CreateDummyMeetingButton />
+        </div>
         <MeetingGroup title="Upcoming & proposed" items={upcoming} />
         <MeetingGroup title="History" items={past} />
       </div>

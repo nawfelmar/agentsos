@@ -14,6 +14,7 @@ import {
   Video,
   Brain,
   Hash,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
@@ -24,6 +25,7 @@ const NAV = [
   { href: "/channels", label: "Channels", icon: Hash },
   { href: "/meetings", label: "Meetings", icon: Video },
   { href: "/calendar", label: "Calendar", icon: Calendar },
+  { href: "/people", label: "People", icon: Users },
   { href: "/coordination", label: "AI Coordination", icon: Bot },
   { href: "/memory", label: "Decisions & Memory", icon: Brain },
   { href: "/activity", label: "Activity", icon: Activity },
