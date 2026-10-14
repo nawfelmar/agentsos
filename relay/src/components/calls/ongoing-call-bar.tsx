@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Phone, PhoneOff, Maximize2 } from "lucide-react";
+import { Maximize2, Phone, PhoneOff, Volume2, VolumeX } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import {
   getActiveDirectCallSummary,
   type ActiveDirectCallSummary,
 } from "@/lib/actions/direct-call";
-import { playRelayHangup, stopRelayRing } from "@/lib/call-sounds";
+import { armCallAudio, playRelayHangup, stopRelayRing } from "@/lib/call-sounds";
 import { cn } from "@/lib/utils";
 
 const linkBtn =
@@ -29,7 +29,7 @@ function elapsedLabel(iso: string) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-/** Persistent bar + floating mini when a 1:1 call is ringing/active. */
+/** Persistent bar + floating mini with live peer audio while browsing. */
 export function OngoingCallBar({
   initial = null,
   hideOnCallPage = true,
@@ -39,9 +39,11 @@ export function OngoingCallBar({
 }) {
   const [call, setCall] = useState<ActiveDirectCallSummary | null>(initial);
   const [tick, setTick] = useState(0);
+  const [speakerOn, setSpeakerOn] = useState(true);
   const [pending, start] = useTransition();
   const pathname = usePathname();
   const router = useRouter();
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const onCallPage =
     Boolean(call) && pathname.startsWith(`/calls/${call!.id}`);
@@ -69,6 +71,41 @@ export function OngoingCallBar({
     const id = window.setInterval(() => setTick((t) => t + 1), 1000);
     return () => window.clearInterval(id);
   }, [call?.id]);
+
+  // Keep listening: play stock peer A/V with sound while minimized
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !call || call.status !== "active" || onCallPage) {
+      if (el) {
+        el.pause();
+        el.muted = true;
+      }
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      await armCallAudio();
+      if (cancelled) return;
+      el.muted = !speakerOn;
+      el.volume = speakerOn ? 1 : 0;
+      try {
+        await el.play();
+      } catch {
+        // Autoplay with sound blocked — retry muted then unmute on gesture
+        el.muted = true;
+        await el.play().catch(() => undefined);
+        if (speakerOn) {
+          el.muted = false;
+          el.volume = 1;
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [call?.id, call?.status, onCallPage, speakerOn]);
 
   if (!call) return null;
   if (hideOnCallPage && onCallPage) return null;
@@ -118,18 +155,37 @@ export function OngoingCallBar({
                 {elapsedLabel(call.answeredAt ?? call.startedAt)}
               </span>
             )}
+            {!ringing && (
+              <span className="hidden text-[11px] text-faint sm:inline">
+                {speakerOn ? "Listening…" : "Speaker muted"}
+              </span>
+            )}
           </div>
           <p className="truncate text-[11px] text-muted">{call.peerTitle}</p>
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
+          {!ringing && (
+            <Button
+              size="icon"
+              variant="secondary"
+              title={speakerOn ? "Mute speaker" : "Unmute speaker"}
+              onClick={() => setSpeakerOn((v) => !v)}
+            >
+              {speakerOn ? (
+                <Volume2 className="h-4 w-4" />
+              ) : (
+                <VolumeX className="h-4 w-4" />
+              )}
+            </Button>
+          )}
           <Link href={href} className={cn(linkBtnSm, "hidden sm:inline-flex")}>
             <Maximize2 className="h-3.5 w-3.5" />
-            Return
+            Expand
           </Link>
           <Link
             href={href}
-            title="Return to call"
+            title="Expand call"
             className={cn(linkBtnIcon, "sm:hidden")}
           >
             <Phone className="h-4 w-4" />
@@ -155,35 +211,56 @@ export function OngoingCallBar({
       </div>
 
       {!onCallPage && call.status === "active" && (
-        <Link
-          href={href}
-          className="group fixed bottom-4 right-4 z-50 block w-[200px] overflow-hidden rounded-relay border border-white/15 bg-[#0a0d12] shadow-pop transition hover:border-accent/40 md:bottom-5 md:right-5 md:w-[240px]"
-          title="Return to call"
-        >
-          <div className="relative aspect-video w-full bg-surface-2">
-            <video
-              src={DEMO_PEER_MEDIA}
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="h-full w-full object-cover"
-            />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-2.5 pb-2 pt-6">
-              <p className="truncate text-[11px] font-medium text-white">{call.peerName}</p>
-              <p className="text-[10px] text-white/70">Live · tap to return</p>
+        <div className="fixed bottom-4 right-4 z-50 w-[200px] overflow-hidden rounded-relay border border-white/15 bg-[#0a0d12] shadow-pop md:bottom-5 md:right-5 md:w-[240px]">
+          <Link href={href} className="group block" title="Expand call">
+            <div className="relative aspect-video w-full bg-surface-2">
+              <video
+                ref={videoRef}
+                src={DEMO_PEER_MEDIA}
+                autoPlay
+                loop
+                playsInline
+                muted={!speakerOn}
+                className="h-full w-full object-cover"
+              />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-2.5 pb-2 pt-6">
+                <p className="truncate text-[11px] font-medium text-white">
+                  {call.peerName}
+                </p>
+                <p className="text-[10px] text-white/70">
+                  {speakerOn ? "Listening · tap to expand" : "Speaker muted · tap to expand"}
+                </p>
+              </div>
+              <span className="absolute left-2 top-2 rounded bg-success/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-white">
+                Live
+              </span>
             </div>
-            <span className="absolute left-2 top-2 rounded bg-success/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-white">
-              Live
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-2 border-t border-white/10 px-2.5 py-1.5">
+          </Link>
+          <div className="flex items-center justify-between gap-2 border-t border-white/10 px-2 py-1.5">
             <span className="truncate text-[11px] text-white/80">{call.peerTitle}</span>
-            <span className="font-mono text-[10px] text-success">
-              {elapsedLabel(call.answeredAt ?? call.startedAt)}
-            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className="relay-focus rounded-md p-1.5 text-white/80 hover:bg-white/10 hover:text-white"
+                title={speakerOn ? "Mute speaker" : "Unmute speaker"}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSpeakerOn((v) => !v);
+                }}
+              >
+                {speakerOn ? (
+                  <Volume2 className="h-3.5 w-3.5" />
+                ) : (
+                  <VolumeX className="h-3.5 w-3.5" />
+                )}
+              </button>
+              <span className="font-mono text-[10px] text-success">
+                {elapsedLabel(call.answeredAt ?? call.startedAt)}
+              </span>
+            </div>
           </div>
-        </Link>
+        </div>
       )}
     </>
   );

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Mic,
   MicOff,
+  Minimize2,
   MonitorUp,
   PhoneOff,
   Shield,
@@ -192,6 +193,22 @@ export function DirectCallRoom({
               <ShieldOff className="h-3.5 w-3.5" />
             )}
             {privacyMode ? "Privacy on" : "Privacy mode"}
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={pending || !live || ringing}
+            title="Minimize call — keep listening while you browse"
+            className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+            onClick={() => {
+              // Leave the immersive room; AppShell ongoing chrome keeps A/V audible.
+              router.push("/people");
+              router.refresh();
+            }}
+          >
+            <Minimize2 className="h-3.5 w-3.5" />
+            Minimize
           </Button>
 
           <Button

@@ -57,7 +57,7 @@ export default async function DirectCallPage({ params }: { params: { id: string 
       user={user}
       unread={notifications.filter((n) => !n.read).length}
       header={
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Link href="/people" className="text-xs text-faint hover:text-ink">
             People
           </Link>
@@ -65,6 +65,15 @@ export default async function DirectCallPage({ params }: { params: { id: string 
           <p className="truncate text-sm font-medium text-ink">Call · {peer.name}</p>
           {call.status === "active" && <Badge tone="success">Live</Badge>}
           {call.privacyMode && <Badge tone="success">Private</Badge>}
+          {call.status === "active" && (
+            <Link
+              href="/people"
+              className="ml-auto shrink-0 rounded-relay border border-line bg-surface-2 px-2.5 py-1 text-xs text-ink hover:border-line-strong"
+              title="Minimize — keep listening while you browse"
+            >
+              Minimize
+            </Link>
+          )}
         </div>
       }
       contextTitle="Statement board"
