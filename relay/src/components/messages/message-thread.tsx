@@ -134,10 +134,10 @@ export function MessageThread({
                   )}
                   <div
                     className={cn(
-                      "relative rounded-2xl px-3.5 py-2.5 text-[14px] leading-[1.55]",
+                      "relative px-3.5 py-2.5 text-[14px] leading-[1.55]",
                       mine
-                        ? "rounded-tr-md bg-accent text-accent-fg shadow-[0_8px_24px_-12px_rgba(61,139,253,0.55)]"
-                        : "rounded-tl-md border border-line/90 bg-surface-2/90 text-ink"
+                        ? "rounded-[18px] rounded-tr-md bg-gradient-to-br from-[#4a94ff] to-[#2f78e8] text-white shadow-[0_10px_28px_-14px_rgba(61,139,253,0.75)]"
+                        : "rounded-[18px] rounded-tl-md bg-surface-2 text-ink ring-1 ring-inset ring-white/[0.06]"
                     )}
                   >
                     <p className="whitespace-pre-wrap">{m.body}</p>

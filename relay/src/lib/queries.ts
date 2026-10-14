@@ -130,6 +130,7 @@ export async function getChannels() {
         take: 1,
         include: { author: true },
       },
+      members: { include: { user: true } },
       _count: { select: { messages: true } },
     },
     orderBy: { name: "asc" },

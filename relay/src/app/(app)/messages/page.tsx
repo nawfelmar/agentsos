@@ -40,7 +40,12 @@ export default async function MessagesIndexPage() {
       }
     >
       <div className="mx-auto grid max-w-5xl gap-8 p-5 md:grid-cols-2 md:p-8">
-        <ConversationList title="Direct & group" items={dms} kind="dm" />
+        <ConversationList
+          title="Direct & group"
+          items={dms}
+          kind="dm"
+          currentUserId={user.id}
+        />
         <ConversationList title="Channels" items={chans} kind="channel" />
       </div>
     </AppShell>
@@ -51,10 +56,12 @@ function ConversationList({
   title,
   items,
   kind,
+  currentUserId,
 }: {
   title: string
   items: Awaited<ReturnType<typeof getChannels>>
   kind: "dm" | "channel"
+  currentUserId?: string
 }) {
   return (
     <section>
@@ -68,8 +75,14 @@ function ConversationList({
         )}
         {items.map((c, i) => {
           const last = c.messages[0];
+          const peer =
+            kind === "dm" && currentUserId
+              ? c.members.map((m) => m.user).find((u) => u.id !== currentUserId)
+              : null;
           const Icon =
             kind === "dm" ? MessagesSquare : c.type === "private" ? Lock : Hash;
+          const label =
+            kind === "channel" ? `#${c.name}` : peer?.name ?? c.name;
           return (
             <li key={c.id} className={i > 0 ? "border-t border-line/60" : undefined}>
               <Link
@@ -77,10 +90,11 @@ function ConversationList({
                 className="flex items-start gap-3 px-4 py-3.5 transition-colors hover:bg-surface-2/50"
               >
                 <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line bg-surface-2 text-accent">
-                  {kind === "dm" && last ? (
+                  {peer ? (
                     <Avatar
-                      name={last.author.name}
-                      color={last.author.avatarColor}
+                      name={peer.name}
+                      color={peer.avatarColor}
+                      status={peer.status}
                       size="md"
                     />
                   ) : (
@@ -90,7 +104,7 @@ function ConversationList({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="truncate text-sm font-medium tracking-tight text-ink">
-                      {kind === "channel" ? `#${c.name}` : c.name}
+                      {label}
                     </p>
                     {last && (
                       <span className="shrink-0 font-mono text-[10px] text-faint">
