@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/shell/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { CreateDummyMeetingButton } from "@/components/meetings/create-dummy-meeting-button";
-import { PersonCard } from "@/components/people/person-card";
+import { PeopleDirectory } from "@/components/people/people-directory";
 import { ensureSeeded } from "@/lib/ensure-seeded";
 import {
   getActiveDirectCall,
@@ -38,15 +38,17 @@ export default async function PeoplePage() {
     activeCall &&
     (activeCall.callerId === user.id ? activeCall.callee.name : activeCall.caller.name);
 
-  const byRole = {
-    executive: users.filter((u) => u.role === "executive"),
-    tech_lead: users.filter((u) => u.role === "tech_lead"),
-    engineer: users.filter((u) => u.role === "engineer"),
-    product: users.filter((u) => u.role === "product"),
-    other: users.filter(
-      (u) => !["executive", "tech_lead", "engineer", "product"].includes(u.role)
-    ),
-  };
+  const people = users.map((u) => ({
+    id: u.id,
+    name: u.name,
+    title: u.title,
+    email: u.email,
+    role: u.role,
+    avatarColor: u.avatarColor,
+    status: u.status,
+    isCurrentUser: u.isCurrentUser,
+    teams: teamByUser.get(u.id) ?? [],
+  }));
 
   return (
     <AppShell
@@ -62,8 +64,9 @@ export default async function PeoplePage() {
       context={
         <div className="space-y-3 text-xs text-muted">
           <p>
-            Call next to anyone starts a direct 1:1 with camera and mic. Call is hidden while you are
-            already in a call.
+            <strong className="text-ink">Chat</strong> opens a DM.{" "}
+            <strong className="text-ink">Call</strong> starts a 1:1 with camera and mic (hidden while
+            you’re already in a call).
           </p>
           {activeCall ? (
             <p>
@@ -73,29 +76,25 @@ export default async function PeoplePage() {
               </Link>
             </p>
           ) : (
-            <p>You’re free — Call appears next to each person.</p>
+            <p>Search the directory, then Chat or Call anyone.</p>
           )}
           <CreateDummyMeetingButton className="w-full" />
         </div>
       }
     >
-      <div className="mx-auto max-w-5xl space-y-6 p-5 md:p-6">
+      <div className="mx-auto max-w-5xl space-y-5 p-5 md:p-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="font-display text-xl text-ink">Directory</h1>
             <p className="mt-1 text-sm text-muted">
-              Direct 1:1 calls — not group meetings. Your camera and mic turn on in the call room.
+              Search the org, then Chat (DM) or Call (1:1 video) next to anyone.
             </p>
-            {callerBusy ? (
+            {callerBusy && (
               <p className="mt-2 text-xs text-warn">
-                Call buttons are hidden while you’re in a call with {peerName}.{" "}
+                Call is hidden while you’re with {peerName}.{" "}
                 <Link href={`/calls/${activeCall!.id}`} className="underline">
                   Open call
                 </Link>
-              </p>
-            ) : (
-              <p className="mt-2 text-xs text-faint">
-                Pick anyone — Call sits next to their card.
               </p>
             )}
           </div>
@@ -105,35 +104,11 @@ export default async function PeoplePage() {
           </div>
         </div>
 
-        {(
-          [
-            ["Executives", byRole.executive],
-            ["Tech leads", byRole.tech_lead],
-            ["Engineers", byRole.engineer],
-            ["Product & design", byRole.product],
-            ["Other", byRole.other],
-          ] as const
-        ).map(([label, list]) =>
-          list.length === 0 ? null : (
-            <section key={label} className="space-y-2">
-              <h2 className="text-sm font-semibold text-ink">
-                {label}{" "}
-                <span className="text-faint font-normal">· {list.length}</span>
-              </h2>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {list.map((u) => (
-                  <PersonCard
-                    key={u.id}
-                    person={u}
-                    teams={teamByUser.get(u.id) ?? []}
-                    callerBusy={callerBusy}
-                    activeCallHref={activeCall ? `/calls/${activeCall.id}` : null}
-                  />
-                ))}
-              </div>
-            </section>
-          )
-        )}
+        <PeopleDirectory
+          people={people}
+          callerBusy={callerBusy}
+          activeCallHref={activeCall ? `/calls/${activeCall.id}` : null}
+        />
       </div>
     </AppShell>
   );

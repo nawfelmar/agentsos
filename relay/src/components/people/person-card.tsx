@@ -3,6 +3,7 @@
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { CallPersonButton } from "@/components/meetings/call-person-button";
+import { ChatPersonButton } from "@/components/people/chat-person-button";
 
 export function PersonCard({
   person,
@@ -44,14 +45,16 @@ export function PersonCard({
           ))}
         </div>
       </div>
-      {!person.isCurrentUser && !callerBusy && (
-        <div className="shrink-0 self-center">
-          <CallPersonButton userId={person.id} name={person.name} />
-        </div>
-      )}
-      {!person.isCurrentUser && callerBusy && activeCallHref && (
-        <div className="shrink-0 self-center">
-          <Badge tone="warn">In a call</Badge>
+      {!person.isCurrentUser && (
+        <div className="flex shrink-0 flex-col items-stretch gap-1.5 self-center sm:flex-row">
+          <ChatPersonButton userId={person.id} name={person.name} />
+          {!callerBusy ? (
+            <CallPersonButton userId={person.id} name={person.name} />
+          ) : activeCallHref ? (
+            <Badge tone="warn" className="justify-center">
+              In a call
+            </Badge>
+          ) : null}
         </div>
       )}
     </article>

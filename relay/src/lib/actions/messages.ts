@@ -4,6 +4,70 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { summarizeConversation } from "@/lib/ai/provider";
 
+function dmSlugFor(aId: string, bId: string) {
+  const [x, y] = [aId, bId].sort();
+  return `dm-${x}-${y}`.toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 96);
+}
+
+/** Open an existing 1:1 DM or create one, then return its slug for navigation. */
+export async function openOrCreateDm(otherUserId: string) {
+  const me = await prisma.user.findFirst({ where: { isCurrentUser: true } });
+  if (!me) throw new Error("No current user");
+  if (otherUserId === me.id) throw new Error("Cannot DM yourself");
+
+  const other = await prisma.user.findUnique({ where: { id: otherUserId } });
+  if (!other || other.organizationId !== me.organizationId) {
+    throw new Error("Person not found");
+  }
+
+  const existing = await prisma.channel.findFirst({
+    where: {
+      organizationId: me.organizationId,
+      type: "dm",
+      AND: [
+        { members: { some: { userId: me.id } } },
+        { members: { some: { userId: otherUserId } } },
+      ],
+    },
+    include: { members: true },
+  });
+
+  if (existing) {
+    const memberIds = new Set(existing.members.map((m) => m.userId));
+    if (memberIds.has(me.id) && memberIds.has(otherUserId)) {
+      revalidatePath(`/messages/${existing.slug}`);
+      revalidatePath("/messages");
+      return { ok: true as const, slug: existing.slug, created: false };
+    }
+  }
+
+  const slug = dmSlugFor(me.id, other.id);
+  const bySlug = await prisma.channel.findFirst({
+    where: { organizationId: me.organizationId, slug },
+  });
+  if (bySlug) {
+    return { ok: true as const, slug: bySlug.slug, created: false };
+  }
+
+  const channel = await prisma.channel.create({
+    data: {
+      organizationId: me.organizationId,
+      name: `${me.name.split(" ")[0]} ↔ ${other.name.split(" ")[0]}`,
+      slug,
+      type: "dm",
+      description: `Direct messages between ${me.name} and ${other.name}`,
+      members: {
+        create: [{ userId: me.id }, { userId: other.id }],
+      },
+    },
+  });
+
+  revalidatePath(`/messages/${channel.slug}`);
+  revalidatePath("/messages");
+  revalidatePath("/people");
+  return { ok: true as const, slug: channel.slug, created: true };
+}
+
 export async function sendMessage(channelSlug: string, body: string, parentId?: string) {
   const trimmed = body.trim();
   if (!trimmed) throw new Error("Message cannot be empty");
