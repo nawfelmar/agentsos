@@ -149,6 +149,7 @@ export async function getChannelBySlug(slug: string) {
         },
         orderBy: { createdAt: "asc" },
       },
+      members: { include: { user: true } },
       project: true,
       team: true,
     },

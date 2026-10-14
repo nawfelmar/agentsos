@@ -53,6 +53,7 @@ model User {
   approvals      Approval[]
   callsMade      DirectCall[] @relation("CallsMade")
   callsReceived  DirectCall[] @relation("CallsReceived")
+  channelMembers ChannelMember[]
 
   @@unique([organizationId, email])
 }
@@ -153,6 +154,7 @@ model ChannelMember {
   lastReadAt DateTime?
 
   channel Channel @relation(fields: [channelId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
 
   @@unique([channelId, userId])
 }
