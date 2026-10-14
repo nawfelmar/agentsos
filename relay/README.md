@@ -11,11 +11,18 @@ Relay autonomously coordinates organizational communication — blockers, clarif
 ```bash
 cd relay
 npm install
-npm run db:setup
+npm run db:setup   # creates .env from .env.example if missing, then DB + seed
 npm run dev
 ```
 
 Open [http://localhost:3001](http://localhost:3001).
+
+If you see `Environment variable not found: DATABASE_URL`, run:
+
+```bash
+cp .env.example .env
+npm run db:setup
+```
 
 You are signed in as **Alex Rivera** (Staff Engineer) in the seeded **Northline Systems** workspace.
 

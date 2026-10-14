@@ -1,4 +1,9 @@
+import path from "node:path";
 import { PrismaClient } from "@prisma/client";
+
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = `file:${path.join(process.cwd(), "prisma", "dev.db")}`;
+}
 
 const prisma = new PrismaClient();
 
