@@ -9,17 +9,16 @@ import { SharedMeetingBoard } from "@/components/meetings/shared-meeting-board";
 import { LiveStatementForm } from "@/components/meetings/live-statement-form";
 import { parseJson } from "@/lib/utils";
 import { ensureSeeded } from "@/lib/ensure-seeded";
-import { getCurrentUser, getMeeting, getNotifications, getUsers } from "@/lib/queries";
+import { getCurrentUser, getMeeting, getNotifications } from "@/lib/queries";
 import type { MeetingSummary } from "@/lib/domain/meeting-summary";
 import type { MeetingPositions } from "@/lib/domain/meeting-positions";
 
 export default async function MeetingDetailPage({ params }: { params: { id: string } }) {
   if (!(await ensureSeeded())) redirect("/setup");
-  const [user, meeting, notifications, directory] = await Promise.all([
+  const [user, meeting, notifications] = await Promise.all([
     getCurrentUser(),
     getMeeting(params.id),
     getNotifications(),
-    getUsers(),
   ]);
   if (!user) redirect("/setup");
   if (!meeting) notFound();
@@ -51,8 +50,8 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
       context={
         <div className="space-y-3 text-xs text-muted">
           <p>
-            Start the meeting to reveal Call next to each person. Toggle privacy in the call bar, and pin
-            statement highlights on the shared board.
+            Start the meeting for group A/V + the shared board. Direct 1:1 calls (with camera/mic) live
+            on People — Call next to anyone when you’re free.
           </p>
           <Badge tone={live ? "success" : "accent"}>{live ? "In progress" : "Ready to start"}</Badge>
         </div>
@@ -80,13 +79,8 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           topic={meeting.purpose ?? meeting.title}
           positions={outcomes.positions ?? null}
           privacyMode={meeting.privacyMode}
-          directory={directory.map((u) => ({
-            id: u.id,
-            name: u.name,
-            title: u.title,
-            avatarColor: u.avatarColor,
-            status: u.status,
-          }))}
+          selfName={user.name}
+          selfColor={user.avatarColor}
           participants={meeting.participants.map((p) => ({
             id: p.id,
             userId: p.userId,

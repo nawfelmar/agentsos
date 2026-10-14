@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MeetingRoomControls } from "@/components/meetings/meeting-room-controls";
 import { PrivacyModeToggle } from "@/components/meetings/privacy-mode-toggle";
-import type { DirectoryPerson } from "@/components/meetings/call-anyone-panel";
 import { generateMeetingPositions } from "@/lib/actions/meetings";
 import {
   STANCE_LABEL,
@@ -59,7 +58,8 @@ export function SharedMeetingBoard({
   participants,
   positions,
   privacyMode = false,
-  directory = [],
+  selfName = "You",
+  selfColor = "#5B8DEF",
 }: {
   meetingId: string
   status: string
@@ -67,7 +67,8 @@ export function SharedMeetingBoard({
   participants: Participant[]
   positions: MeetingPositions | null
   privacyMode?: boolean
-  directory?: DirectoryPerson[]
+  selfName?: string
+  selfColor?: string
 }) {
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -237,10 +238,8 @@ export function SharedMeetingBoard({
             meetingId={meetingId}
             status={status}
             privacyMode={privacyMode}
-            directory={directory}
-            inMeetingUserIds={participants
-              .map((p) => p.userId)
-              .filter((id): id is string => Boolean(id))}
+            selfName={selfName}
+            selfColor={selfColor}
           />
         </div>
 

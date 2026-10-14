@@ -7,8 +7,9 @@ import { CallPersonButton } from "@/components/meetings/call-person-button";
 export function PersonCard({
   person,
   teams,
-  liveMeetingId,
-  alreadyInCall,
+  /** When true, Call is hidden — you're already in a 1:1. */
+  callerBusy = false,
+  activeCallHref,
 }: {
   person: {
     id: string
@@ -21,9 +22,8 @@ export function PersonCard({
     isCurrentUser: boolean
   }
   teams: string[]
-  /** When set, Call is shown next to this person; omit when no live meeting. */
-  liveMeetingId?: string | null
-  alreadyInCall?: boolean
+  callerBusy?: boolean
+  activeCallHref?: string | null
 }) {
   return (
     <article className="flex items-start gap-3 rounded-relay border border-line bg-surface/70 p-3">
@@ -44,14 +44,14 @@ export function PersonCard({
           ))}
         </div>
       </div>
-      {liveMeetingId && !person.isCurrentUser && (
+      {!person.isCurrentUser && !callerBusy && (
         <div className="shrink-0 self-center">
-          <CallPersonButton
-            meetingId={liveMeetingId}
-            userId={person.id}
-            name={person.name}
-            alreadyInCall={alreadyInCall}
-          />
+          <CallPersonButton userId={person.id} name={person.name} />
+        </div>
+      )}
+      {!person.isCurrentUser && callerBusy && activeCallHref && (
+        <div className="shrink-0 self-center">
+          <Badge tone="warn">In a call</Badge>
         </div>
       )}
     </article>

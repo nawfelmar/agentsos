@@ -1,57 +1,40 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { callPersonIntoMeeting } from "@/lib/actions/live-meeting";
+import { startDirectCall } from "@/lib/actions/direct-call";
 
-/** Call control shown next to a person — only render while a meeting is live. */
+/** 1:1 Call next to a person — only render when the current user is free. */
 export function CallPersonButton({
-  meetingId,
   userId,
   name,
-  alreadyInCall = false,
   size = "sm",
 }: {
-  meetingId: string
   userId: string
   name: string
-  alreadyInCall?: boolean
   size?: "sm" | "icon"
 }) {
   const [pending, start] = useTransition();
-  const [label, setLabel] = useState<"Call" | "Ringing…" | "In call">(
-    alreadyInCall ? "In call" : "Call"
-  );
   const router = useRouter();
-
-  if (alreadyInCall || label === "In call") {
-    return (
-      <Button size={size} variant="secondary" disabled title={`${name} is already in the call`}>
-        <Phone className="h-3 w-3" />
-        {size !== "icon" && "In call"}
-      </Button>
-    );
-  }
 
   return (
     <Button
       size={size}
       variant="primary"
       disabled={pending}
-      title={`Call ${name} into the live meeting`}
+      title={`Start a direct call with ${name}`}
       onClick={() =>
         start(async () => {
-          setLabel("Ringing…");
-          await callPersonIntoMeeting(meetingId, userId);
-          setLabel("In call");
+          const res = await startDirectCall(userId);
+          router.push(`/calls/${res.id}`);
           router.refresh();
         })
       }
     >
       <Phone className="h-3 w-3" />
-      {size !== "icon" && label}
+      {size !== "icon" && (pending ? "Calling…" : "Call")}
     </Button>
   );
 }

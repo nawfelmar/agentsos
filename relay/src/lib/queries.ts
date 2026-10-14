@@ -165,7 +165,7 @@ export async function getMeetings() {
   });
 }
 
-/** Active live meeting, if any — used to show per-person Call buttons. */
+/** Active live meeting, if any. */
 export async function getLiveMeeting() {
   return prisma.meeting.findFirst({
     where: { status: "in_progress" },
@@ -173,6 +173,35 @@ export async function getLiveMeeting() {
       participants: true,
     },
     orderBy: { startAt: "desc" },
+  });
+}
+
+/** Open 1:1 direct call for the current user (ringing or active). */
+export async function getActiveDirectCall(userId?: string) {
+  const id =
+    userId ??
+    (await prisma.user.findFirst({ where: { isCurrentUser: true } }))?.id;
+  if (!id) return null;
+  return prisma.directCall.findFirst({
+    where: {
+      status: { in: ["ringing", "active"] },
+      OR: [{ callerId: id }, { calleeId: id }],
+    },
+    include: {
+      caller: true,
+      callee: true,
+    },
+    orderBy: { startedAt: "desc" },
+  });
+}
+
+export async function getDirectCall(id: string) {
+  return prisma.directCall.findUnique({
+    where: { id },
+    include: {
+      caller: true,
+      callee: true,
+    },
   });
 }
 

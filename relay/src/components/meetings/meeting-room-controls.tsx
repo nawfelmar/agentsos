@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Mic,
@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PrivacyModeToggle } from "@/components/meetings/privacy-mode-toggle";
-import { PeopleCallList } from "@/components/meetings/people-call-list";
-import type { DirectoryPerson } from "@/components/meetings/call-anyone-panel";
+import { VideoTile } from "@/components/calls/video-tile";
+import { useLocalMedia } from "@/hooks/use-local-media";
 import { cancelMeeting } from "@/lib/actions/meetings";
 import { endLiveMeeting, startLiveMeeting } from "@/lib/actions/live-meeting";
 import { cn } from "@/lib/utils";
@@ -24,21 +24,23 @@ export function MeetingRoomControls({
   meetingId,
   status,
   privacyMode = false,
-  directory = [],
-  inMeetingUserIds = [],
+  selfName = "You",
+  selfColor = "#5B8DEF",
 }: {
   meetingId: string
   status: string
   privacyMode?: boolean
-  directory?: DirectoryPerson[]
+  selfName?: string
+  selfColor?: string
+  /** @deprecated Direct 1:1 calling lives on People — kept for API compat */
+  directory?: unknown[]
   inMeetingUserIds?: string[]
 }) {
-  const [muted, setMuted] = useState(true);
-  const [camOff, setCamOff] = useState(true);
   const [pending, start] = useTransition();
   const router = useRouter();
   const live = status === "in_progress";
   const ended = status === "completed" || status === "cancelled";
+  const media = useLocalMedia(live);
 
   return (
     <div className="mt-4 space-y-3">
@@ -68,9 +70,28 @@ export function MeetingRoomControls({
           )}
         >
           {privacyMode
-            ? "In call · privacy on — Call appears next to each person below"
-            : "In call — Call appears next to each person; toggle privacy anytime"}
+            ? "Meeting live · privacy on — your camera/mic are on this device"
+            : "Meeting live — camera and mic are live; for 1:1 calls use People"}
         </div>
+      )}
+
+      {live && (
+        <VideoTile
+          stream={media.stream}
+          name={selfName}
+          color={selfColor}
+          muted={media.muted}
+          camOff={media.camOff}
+          mirrored
+          label={media.ready ? "You · live camera" : "You"}
+          className="aspect-video w-full"
+        />
+      )}
+
+      {media.error && live && (
+        <p className="rounded-relay border border-warn/30 bg-warn/10 px-3 py-2 text-[11px] text-warn">
+          {media.error}
+        </p>
       )}
 
       <div className="space-y-2 rounded-relay border border-line bg-canvas/60 px-3 py-3">
@@ -79,21 +100,21 @@ export function MeetingRoomControls({
             variant="secondary"
             size="icon"
             disabled={!live}
-            onClick={() => setMuted((v) => !v)}
-            title="Demo mute"
+            onClick={media.toggleMute}
+            title={media.muted ? "Unmute mic" : "Mute mic"}
           >
-            {muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            {media.muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
           </Button>
           <Button
             variant="secondary"
             size="icon"
             disabled={!live}
-            onClick={() => setCamOff((v) => !v)}
-            title="Demo camera"
+            onClick={media.toggleCam}
+            title={media.camOff ? "Turn camera on" : "Turn camera off"}
           >
-            {camOff ? <VideoOff className="h-4 w-4" /> : <Video className="h-4 w-4" />}
+            {media.camOff ? <VideoOff className="h-4 w-4" /> : <Video className="h-4 w-4" />}
           </Button>
-          <Button variant="secondary" size="icon" disabled={!live} title="Demo screen share">
+          <Button variant="secondary" size="icon" disabled title="Screen share (soon)">
             <MonitorUp className="h-4 w-4" />
           </Button>
 
@@ -108,6 +129,7 @@ export function MeetingRoomControls({
               disabled={pending}
               onClick={() =>
                 start(async () => {
+                  media.stop();
                   await endLiveMeeting(meetingId);
                   router.refresh();
                 })
@@ -133,22 +155,14 @@ export function MeetingRoomControls({
             </Button>
           )}
         </div>
-
-        {/* Call next to each person — only while live (hidden otherwise) */}
-        {live && !ended && directory.length > 0 && (
-          <div className="border-t border-line pt-3">
-            <PeopleCallList
-              meetingId={meetingId}
-              directory={directory}
-              inMeetingUserIds={inMeetingUserIds}
-              embedded
-            />
-          </div>
-        )}
       </div>
 
       <p className="text-center text-[11px] text-faint">
-        Demo A/V — audio/video are simulated. Per-person Call and privacy mode are real app state.
+        Group meetings use this room’s camera/mic. Direct 1:1 calls live on{" "}
+        <a href="/people" className="text-accent hover:underline">
+          People
+        </a>
+        .
       </p>
     </div>
   );

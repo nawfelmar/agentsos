@@ -5,16 +5,21 @@ import { Badge } from "@/components/ui/badge";
 import { CreateDummyMeetingButton } from "@/components/meetings/create-dummy-meeting-button";
 import { PersonCard } from "@/components/people/person-card";
 import { ensureSeeded } from "@/lib/ensure-seeded";
-import { getCurrentUser, getLiveMeeting, getNotifications, getUsers } from "@/lib/queries";
+import {
+  getActiveDirectCall,
+  getCurrentUser,
+  getNotifications,
+  getUsers,
+} from "@/lib/queries";
 import { prisma } from "@/lib/db";
 
 export default async function PeoplePage() {
   if (!(await ensureSeeded())) redirect("/setup");
-  const [user, notifications, users, liveMeeting] = await Promise.all([
+  const [user, notifications, users, activeCall] = await Promise.all([
     getCurrentUser(),
     getNotifications(),
     getUsers(),
-    getLiveMeeting(),
+    getActiveDirectCall(),
   ]);
   if (!user) redirect("/setup");
 
@@ -28,7 +33,10 @@ export default async function PeoplePage() {
     teamByUser.set(m.userId, list);
   }
 
-  const inCallIds = new Set(liveMeeting?.participants.map((p) => p.userId) ?? []);
+  const callerBusy = Boolean(activeCall);
+  const peerName =
+    activeCall &&
+    (activeCall.callerId === user.id ? activeCall.callee.name : activeCall.caller.name);
 
   const byRole = {
     executive: users.filter((u) => u.role === "executive"),
@@ -50,23 +58,22 @@ export default async function PeoplePage() {
           <p className="text-sm font-medium text-ink">Dummy employees · {users.length}</p>
         </div>
       }
-      contextTitle="Demo data"
+      contextTitle="Directory"
       context={
         <div className="space-y-3 text-xs text-muted">
           <p>
-            Northline is seeded with a full engineering org. Create a dummy meeting to put several of
-            them on a shared board with statement highlights.
+            Call next to anyone starts a direct 1:1 with camera and mic. Call is hidden while you are
+            already in a call.
           </p>
-          {liveMeeting ? (
+          {activeCall ? (
             <p>
-              A meeting is live —{" "}
-              <Link href={`/meetings/${liveMeeting.id}`} className="text-accent hover:underline">
-                {liveMeeting.title}
+              You’re in a call with {peerName}.{" "}
+              <Link href={`/calls/${activeCall.id}`} className="text-accent hover:underline">
+                Return to call
               </Link>
-              . Call appears next to each person.
             </p>
           ) : (
-            <p>Call next to each person is hidden until a meeting is live.</p>
+            <p>You’re free — Call appears next to each person.</p>
           )}
           <CreateDummyMeetingButton className="w-full" />
         </div>
@@ -77,21 +84,23 @@ export default async function PeoplePage() {
           <div>
             <h1 className="font-display text-xl text-ink">Directory</h1>
             <p className="mt-1 text-sm text-muted">
-              Seeded employees across Platform, Checkout, and Data.
+              Direct 1:1 calls — not group meetings. Your camera and mic turn on in the call room.
             </p>
-            {liveMeeting ? (
-              <p className="mt-2 text-xs text-success">
-                Live: <Link href={`/meetings/${liveMeeting.id}`} className="underline">{liveMeeting.title}</Link>
-                {" — "}Call is next to each person
+            {callerBusy ? (
+              <p className="mt-2 text-xs text-warn">
+                Call buttons are hidden while you’re in a call with {peerName}.{" "}
+                <Link href={`/calls/${activeCall!.id}`} className="underline">
+                  Open call
+                </Link>
               </p>
             ) : (
               <p className="mt-2 text-xs text-faint">
-                Start a meeting to reveal Call next to anyone in this directory.
+                Pick anyone — Call sits next to their card.
               </p>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {liveMeeting && <Badge tone="success">Meeting live</Badge>}
+            {callerBusy && <Badge tone="warn">In a call</Badge>}
             <CreateDummyMeetingButton variant="secondary" />
           </div>
         </div>
@@ -117,8 +126,8 @@ export default async function PeoplePage() {
                     key={u.id}
                     person={u}
                     teams={teamByUser.get(u.id) ?? []}
-                    liveMeetingId={liveMeeting?.id}
-                    alreadyInCall={inCallIds.has(u.id)}
+                    callerBusy={callerBusy}
+                    activeCallHref={activeCall ? `/calls/${activeCall.id}` : null}
                   />
                 ))}
               </div>
