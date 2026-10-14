@@ -46,8 +46,7 @@ export function MeetingRoomControls({
         </Button>
       </div>
       <p className="text-center text-[11px] text-faint">
-        Demo meeting room — use <span className="text-muted">Generate summary</span> below for a clear
-        outcomes brief (not a raw transcript).
+        Shared board is visible to everyone — stance colors and pinned statements stay in sync.
       </p>
     </div>
   );

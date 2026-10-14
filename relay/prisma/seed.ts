@@ -375,6 +375,62 @@ async function main() {
         { item: "RC risk: slip vs scoped mock", owner: "Nina" },
         { item: "Stakeholder update wording", owner: "Relay AI" },
       ]),
+      // Preload shared-board statement highlights so positions are visible in-room.
+      outcomesJson: JSON.stringify({
+        positions: {
+          topic:
+            "Whether to wait on auth-sdk@2.4.0 or approve a scoped mock for Thursday RC",
+          alignmentLabel: "Mostly conditional — agreement depends on a named condition",
+          mode: "demo",
+          generatedAt: new Date(now).toISOString(),
+          highlights: [
+            {
+              id: "hl_jordan",
+              speaker: "Jordan Lee",
+              stance: "against",
+              position:
+                "Against shipping RC without the real SDK — integration tests stay blocked.",
+              highlight:
+                "Without auth-sdk@2.4.0 we can’t exercise the session handoff path. A mock isn’t good enough for RC.",
+              topic: "auth-sdk RC path",
+              atLabel: "04:12",
+            },
+            {
+              id: "hl_maya",
+              speaker: "Maya Chen",
+              stance: "conditional",
+              position:
+                "Can commit to tomorrow AM publish if HSM rotate clears — not promising earlier.",
+              highlight:
+                "2.4.0 is code-complete. If OPS-1842 lands tonight, artifact should be in the registry by tomorrow morning.",
+              topic: "auth-sdk RC path",
+              atLabel: "07:40",
+            },
+            {
+              id: "hl_nina",
+              speaker: "Nina Volkov",
+              stance: "questioning",
+              position:
+                "Needs a hard go/no-go criterion before Thursday cut — won’t accept fuzzy ETAs.",
+              highlight:
+                "I need a binary call: publish by 10:00 AM or we slip RC. Product can’t sit in limbo.",
+              topic: "auth-sdk RC path",
+              atLabel: "11:05",
+            },
+            {
+              id: "hl_alex",
+              speaker: "Alex Rivera",
+              stance: "for",
+              position:
+                "Supports keeping the short sync + written stakeholder update rather than expanding the meeting.",
+              highlight:
+                "Let’s keep this to the dependency owners and send Sam a written update.",
+              topic: "auth-sdk RC path",
+              atLabel: "12:20",
+            },
+          ],
+        },
+      }),
     },
   });
 
