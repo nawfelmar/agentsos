@@ -6,18 +6,21 @@ import { Badge } from "@/components/ui/badge";
 import { DemoBanner } from "@/components/ui/demo-banner";
 import { MeetingSummaryCard } from "@/components/meetings/meeting-summary-card";
 import { SharedMeetingBoard } from "@/components/meetings/shared-meeting-board";
+import { CallAnyonePanel } from "@/components/meetings/call-anyone-panel";
+import { LiveStatementForm } from "@/components/meetings/live-statement-form";
 import { parseJson } from "@/lib/utils";
 import { ensureSeeded } from "@/lib/ensure-seeded";
-import { getCurrentUser, getMeeting, getNotifications } from "@/lib/queries";
+import { getCurrentUser, getMeeting, getNotifications, getUsers } from "@/lib/queries";
 import type { MeetingSummary } from "@/lib/domain/meeting-summary";
 import type { MeetingPositions } from "@/lib/domain/meeting-positions";
 
 export default async function MeetingDetailPage({ params }: { params: { id: string } }) {
   if (!(await ensureSeeded())) redirect("/setup");
-  const [user, meeting, notifications] = await Promise.all([
+  const [user, meeting, notifications, directory] = await Promise.all([
     getCurrentUser(),
     getMeeting(params.id),
     getNotifications(),
+    getUsers(),
   ]);
   if (!user) redirect("/setup");
   if (!meeting) notFound();
@@ -28,6 +31,9 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
     structured?: MeetingSummary
     positions?: MeetingPositions
   }>(meeting.outcomesJson, {});
+
+  const live = meeting.status === "in_progress";
+  const inMeetingUserIds = meeting.participants.map((p) => p.userId);
 
   return (
     <AppShell
@@ -40,26 +46,17 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           </Link>
           <span className="text-faint">/</span>
           <p className="truncate text-sm font-medium text-ink">{meeting.title}</p>
+          {live && <Badge tone="success">Live</Badge>}
         </div>
       }
-      contextTitle="Shared board"
+      contextTitle="Run the meeting"
       context={
         <div className="space-y-3 text-xs text-muted">
           <p>
-            Everyone in the meeting sees the same board: each person’s stance, a plain-language position,
-            and a pinned statement highlight.
+            Start the meeting, call any employee into the room, and pin statement highlights so everyone’s
+            position stays clear on the shared board.
           </p>
-          <Badge tone="accent">Live shared surface</Badge>
-          {meeting.isAiProposed && (
-            <Link href="/coordination/run_auth_blocker" className="block text-accent hover:underline">
-              View coordination timeline →
-            </Link>
-          )}
-          {outcomes.structured && (
-            <Link href="/memory" className="block text-accent hover:underline">
-              Open in Decisions & Memory →
-            </Link>
-          )}
+          <Badge tone={live ? "success" : "accent"}>{live ? "In progress" : "Ready to start"}</Badge>
         </div>
       }
     >
@@ -75,7 +72,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           </div>
           <div className="flex gap-1.5">
             {meeting.isAiProposed && <Badge tone="accent">AI proposed</Badge>}
-            <Badge tone="muted">{meeting.status}</Badge>
+            <Badge tone={live ? "success" : "muted"}>{meeting.status}</Badge>
           </div>
         </div>
 
@@ -86,6 +83,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           positions={outcomes.positions ?? null}
           participants={meeting.participants.map((p) => ({
             id: p.id,
+            userId: p.userId,
             name: p.user.name,
             color: p.user.avatarColor,
             status: p.user.status,
@@ -93,6 +91,28 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
             response: p.response,
           }))}
         />
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <CallAnyonePanel
+            meetingId={meeting.id}
+            meetingLive={live}
+            inMeetingUserIds={inMeetingUserIds}
+            directory={directory.map((u) => ({
+              id: u.id,
+              name: u.name,
+              title: u.title,
+              avatarColor: u.avatarColor,
+              status: u.status,
+            }))}
+          />
+          <LiveStatementForm
+            meetingId={meeting.id}
+            participants={meeting.participants.map((p) => ({
+              userId: p.userId,
+              name: p.user.name,
+            }))}
+          />
+        </div>
 
         <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
           <MeetingSummaryCard
@@ -120,7 +140,7 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
                 Decisions & actions
               </p>
               {meeting.decisions.length === 0 && meeting.actionItems.length === 0 ? (
-                <p className="text-xs text-muted">Appear after you generate a summary.</p>
+                <p className="text-xs text-muted">Appear when you end & summarize the meeting.</p>
               ) : (
                 <ul className="space-y-2">
                   {meeting.decisions.map((d) => (

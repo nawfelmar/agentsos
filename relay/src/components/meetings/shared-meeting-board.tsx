@@ -19,12 +19,20 @@ import { cn } from "@/lib/utils";
 
 type Participant = {
   id: string
+  userId?: string
   name: string
   color: string
   status: string
   role: string
   response: string
 };
+
+function callLabel(response: string) {
+  if (response === "in_call") return "In call";
+  if (response === "ringing") return "Ringing…";
+  if (response === "accepted") return "Invited";
+  return response;
+}
 
 const STANCE_BORDER: Record<Stance, string> = {
   for: "border-success/45 bg-success/5",
@@ -174,15 +182,24 @@ export function SharedMeetingBoard({
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-medium text-ink">{p.name}</p>
+                        <Badge
+                          tone={
+                            p.response === "in_call"
+                              ? "success"
+                              : p.response === "ringing"
+                                ? "warn"
+                                : "muted"
+                          }
+                        >
+                          {callLabel(p.response)}
+                        </Badge>
                         {highlight ? (
                           <Badge tone={stanceTone(stance)}>{STANCE_LABEL[stance]}</Badge>
                         ) : (
                           <Badge tone="muted">Listening…</Badge>
                         )}
                       </div>
-                      <p className="mt-0.5 text-[10px] text-faint">
-                        {p.role} · {p.response}
-                      </p>
+                      <p className="mt-0.5 text-[10px] text-faint">{p.role}</p>
                       {highlight ? (
                         <>
                           <p className="mt-2 text-xs font-medium leading-snug text-ink">
