@@ -71,3 +71,12 @@ What we do **not** own: agent internal reasoning or orchestration.
 ## Explicit non-goals
 
 Not an OpenHands / CrewAI / LangGraph / Cursor / chatbot / foundation-model product.
+
+## Relay prototype
+
+AI-native enterprise communication prototype lives in [`relay/`](relay/). It does not replace the AgentOS control-plane UI.
+
+```bash
+cd relay && npm install && npm run db:setup && npm run dev
+# http://localhost:3001
+```

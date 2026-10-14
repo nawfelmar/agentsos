@@ -1,0 +1,403 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  teams     Team[]
+  users     User[]
+  channels  Channel[]
+  projects  Project[]
+  meetings  Meeting[]
+  blockers  Blocker[]
+  decisions Decision[]
+  commitments Commitment[]
+  actionItems ActionItem[]
+  coordinationRuns CoordinationRun[]
+  notifications Notification[]
+  policies  AutonomyPolicy[]
+  auditEvents AuditEvent[]
+}
+
+model User {
+  id             String   @id @default(cuid())
+  organizationId String
+  email          String
+  name           String
+  title          String
+  role           String // engineer | tech_lead | product | executive | admin
+  avatarColor    String
+  status         String   @default("online") // online | away | busy | offline
+  timezone       String   @default("America/Los_Angeles")
+  isCurrentUser  Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  memberships    TeamMembership[]
+  messages       Message[]
+  meetingParts   MeetingParticipant[]
+  ownedBlockers  Blocker[] @relation("BlockerOwner")
+  ownedDecisions Decision[] @relation("DecisionOwner")
+  ownedActions   ActionItem[] @relation("ActionOwner")
+  notifications  Notification[]
+  approvals      Approval[]
+
+  @@unique([organizationId, email])
+}
+
+model Team {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  description    String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  members      TeamMembership[]
+  projects     Project[]
+  channels     Channel[]
+
+  @@unique([organizationId, slug])
+}
+
+model TeamMembership {
+  id     String @id @default(cuid())
+  teamId String
+  userId String
+  role   String @default("member")
+
+  team Team @relation(fields: [teamId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([teamId, userId])
+}
+
+model Project {
+  id             String   @id @default(cuid())
+  organizationId String
+  teamId         String?
+  name           String
+  key            String
+  status         String   @default("active")
+  description    String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  team         Team?        @relation(fields: [teamId], references: [id])
+  blockers     Blocker[]
+  decisions    Decision[]
+  commitments  Commitment[]
+  actionItems  ActionItem[]
+  dependencies Dependency[]
+  meetings     Meeting[]
+  channels     Channel[]
+
+  @@unique([organizationId, key])
+}
+
+model Channel {
+  id             String   @id @default(cuid())
+  organizationId String
+  teamId         String?
+  projectId      String?
+  name           String
+  slug           String
+  type           String   // public | private | dm | group
+  description    String?
+  isAiMonitored  Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  team         Team?        @relation(fields: [teamId], references: [id])
+  project      Project?     @relation(fields: [projectId], references: [id])
+  messages     Message[]
+  members      ChannelMember[]
+
+  @@unique([organizationId, slug])
+}
+
+model ChannelMember {
+  id        String @id @default(cuid())
+  channelId String
+  userId    String
+  lastReadAt DateTime?
+
+  channel Channel @relation(fields: [channelId], references: [id])
+
+  @@unique([channelId, userId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  channelId String
+  authorId  String
+  body      String
+  parentId  String?
+  editedAt  DateTime?
+  createdAt DateTime @default(now())
+
+  channel  Channel   @relation(fields: [channelId], references: [id])
+  author   User      @relation(fields: [authorId], references: [id])
+  parent   Message?  @relation("MessageThread", fields: [parentId], references: [id])
+  replies  Message[] @relation("MessageThread")
+  reactions Reaction[]
+}
+
+model Reaction {
+  id        String @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+
+  message Message @relation(fields: [messageId], references: [id])
+
+  @@unique([messageId, userId, emoji])
+}
+
+model Meeting {
+  id             String   @id @default(cuid())
+  organizationId String
+  projectId      String?
+  title          String
+  purpose        String?
+  status         String   @default("scheduled") // draft | proposed | scheduled | in_progress | completed | cancelled
+  startAt        DateTime
+  endAt          DateTime
+  agendaJson     String   @default("[]")
+  outcomesJson   String   @default("{}")
+  isAiProposed   Boolean  @default(false)
+  demoMode       Boolean  @default(true)
+  preparationStatus String @default("ready") // needs_prep | ready | complete
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project?     @relation(fields: [projectId], references: [id])
+  participants MeetingParticipant[]
+  coordinationRuns CoordinationRun[]
+  decisions    Decision[]
+  actionItems  ActionItem[]
+}
+
+model MeetingParticipant {
+  id        String  @id @default(cuid())
+  meetingId String
+  userId    String
+  role      String  @default("required") // required | optional | organizer
+  response  String  @default("pending") // pending | accepted | declined | tentative
+
+  meeting Meeting @relation(fields: [meetingId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([meetingId, userId])
+}
+
+model Blocker {
+  id             String   @id @default(cuid())
+  organizationId String
+  projectId      String?
+  ownerId        String?
+  title          String
+  description    String
+  severity       String   @default("high") // low | medium | high | critical
+  status         String   @default("open") // open | investigating | waiting | resolving | resolved
+  evidenceJson   String   @default("[]")
+  sourceType     String?  // message | meeting | integration | manual
+  sourceId       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  resolvedAt     DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project?     @relation(fields: [projectId], references: [id])
+  owner        User?        @relation("BlockerOwner", fields: [ownerId], references: [id])
+  coordinationRuns CoordinationRun[]
+  dependencies Dependency[]
+}
+
+model Dependency {
+  id          String @id @default(cuid())
+  projectId   String
+  blockerId   String?
+  title       String
+  description String?
+  ownerTeam   String?
+  status      String @default("open")
+
+  project Project  @relation(fields: [projectId], references: [id])
+  blocker Blocker? @relation(fields: [blockerId], references: [id])
+}
+
+model Decision {
+  id             String   @id @default(cuid())
+  organizationId String
+  projectId      String?
+  meetingId      String?
+  ownerId        String?
+  title          String
+  summary        String
+  status         String   @default("proposed") // proposed | confirmed | reversed
+  evidenceJson   String   @default("[]")
+  createdAt      DateTime @default(now())
+  confirmedAt    DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project?     @relation(fields: [projectId], references: [id])
+  meeting      Meeting?     @relation(fields: [meetingId], references: [id])
+  owner        User?        @relation("DecisionOwner", fields: [ownerId], references: [id])
+}
+
+model Commitment {
+  id             String   @id @default(cuid())
+  organizationId String
+  projectId      String?
+  title          String
+  description    String?
+  ownerName      String?
+  dueAt          DateTime?
+  status         String   @default("open") // open | overdue | completed
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project?     @relation(fields: [projectId], references: [id])
+}
+
+model ActionItem {
+  id             String   @id @default(cuid())
+  organizationId String
+  projectId      String?
+  meetingId      String?
+  ownerId        String?
+  title          String
+  description    String?
+  dueAt          DateTime?
+  status         String   @default("open") // open | in_progress | done
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project?     @relation(fields: [projectId], references: [id])
+  meeting      Meeting?     @relation(fields: [meetingId], references: [id])
+  owner        User?        @relation("ActionOwner", fields: [ownerId], references: [id])
+}
+
+model CoordinationRun {
+  id             String   @id @default(cuid())
+  organizationId String
+  blockerId      String?
+  meetingId      String?
+  title          String
+  status         String   @default("active") // active | paused | completed | cancelled
+  severity       String   @default("high")
+  summary        String?
+  nextAction     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  blocker      Blocker?     @relation(fields: [blockerId], references: [id])
+  meeting      Meeting?     @relation(fields: [meetingId], references: [id])
+  events       CoordinationEvent[]
+  proposedActions ProposedAction[]
+}
+
+model CoordinationEvent {
+  id        String   @id @default(cuid())
+  runId     String
+  kind      String // detected | clarified | proposed_meeting | approved | decision | update_sent | resolved_check
+  title     String
+  detail    String?
+  outcome   String?
+  actor     String   @default("ai") // ai | human | system
+  createdAt DateTime @default(now())
+
+  run CoordinationRun @relation(fields: [runId], references: [id])
+}
+
+model ProposedAction {
+  id          String   @id @default(cuid())
+  runId       String
+  kind        String // schedule_meeting | send_update | escalate | reassign
+  title       String
+  description String
+  payloadJson String   @default("{}")
+  status      String   @default("pending") // pending | approved | rejected | executed
+  createdAt   DateTime @default(now())
+  decidedAt   DateTime?
+
+  run       CoordinationRun @relation(fields: [runId], references: [id])
+  approvals Approval[]
+}
+
+model Approval {
+  id               String   @id @default(cuid())
+  proposedActionId String
+  userId           String
+  decision         String // approved | rejected
+  note             String?
+  createdAt        DateTime @default(now())
+
+  proposedAction ProposedAction @relation(fields: [proposedActionId], references: [id])
+  user           User           @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  kind           String
+  title          String
+  body           String
+  href           String?
+  read           Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+}
+
+model AutonomyPolicy {
+  id             String  @id @default(cuid())
+  organizationId String
+  key            String
+  label          String
+  description    String?
+  valueJson      String  @default("{}")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, key])
+}
+
+model AuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  actor          String
+  action         String
+  targetType     String?
+  targetId       String?
+  detail         String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+}
+
+model StakeholderUpdate {
+  id             String   @id @default(cuid())
+  organizationId String
+  runId          String?
+  audience       String // engineering | product | management
+  title          String
+  body           String
+  status         String   @default("draft") // draft | pending_approval | sent
+  factsJson      String   @default("[]")
+  sentAt         DateTime?
+  createdAt      DateTime @default(now())
+}
