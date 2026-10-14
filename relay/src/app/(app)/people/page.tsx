@@ -11,15 +11,17 @@ import {
   getNotifications,
   getUsers,
 } from "@/lib/queries";
+import { getActiveDirectCallSummary } from "@/lib/actions/direct-call";
 import { prisma } from "@/lib/db";
 
 export default async function PeoplePage() {
   if (!(await ensureSeeded())) redirect("/setup");
-  const [user, notifications, users, activeCall] = await Promise.all([
+  const [user, notifications, users, activeCall, activeCallSummary] = await Promise.all([
     getCurrentUser(),
     getNotifications(),
     getUsers(),
     getActiveDirectCall(),
+    getActiveDirectCallSummary(),
   ]);
   if (!user) redirect("/setup");
 
@@ -54,6 +56,7 @@ export default async function PeoplePage() {
     <AppShell
       user={user}
       unread={notifications.filter((n) => !n.read).length}
+      activeCall={activeCallSummary}
       header={
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-faint">People</p>

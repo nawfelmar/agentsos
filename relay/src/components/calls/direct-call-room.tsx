@@ -198,7 +198,7 @@ export function DirectCallRoom({
           <Button
             variant="secondary"
             size="sm"
-            disabled={pending || !live || ringing}
+            disabled={pending || status === "ended"}
             title="Minimize call — keep listening while you browse"
             className="border-white/10 bg-white/5 text-white hover:bg-white/10"
             onClick={() => {

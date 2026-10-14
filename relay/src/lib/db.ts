@@ -1,11 +1,15 @@
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 
-/** Ensure Prisma always has a SQLite URL, even if `.env` was not copied yet. */
+/** Ensure Prisma always has an absolute SQLite URL (avoids cwd vs schema-relative drift). */
 function ensureDatabaseUrl() {
-  if (process.env.DATABASE_URL) return;
   const absolute = path.join(process.cwd(), "prisma", "dev.db");
-  process.env.DATABASE_URL = `file:${absolute}`;
+  const absoluteUrl = `file:${absolute}`;
+  const current = process.env.DATABASE_URL;
+  // Rewrite relative SQLite URLs so Next and scripts hit the same file.
+  if (!current || current.startsWith("file:./") || current.startsWith("file:prisma/")) {
+    process.env.DATABASE_URL = absoluteUrl;
+  }
 }
 
 ensureDatabaseUrl();
