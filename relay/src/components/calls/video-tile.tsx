@@ -59,7 +59,7 @@ export function VideoTile({
         )}
       />
       {!showVideo && (
-        <div className="flex h-full min-h-[180px] w-full flex-col items-center justify-center gap-3 bg-surface-2">
+        <div className="flex h-full min-h-[120px] w-full flex-col items-center justify-center gap-3 bg-surface-2">
           <Avatar name={name} color={color} size="lg" />
           <p className="text-sm font-medium text-ink">{name}</p>
           {camOff && (

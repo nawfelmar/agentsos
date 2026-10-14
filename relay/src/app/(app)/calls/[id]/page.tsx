@@ -3,8 +3,38 @@ import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { DirectCallRoom } from "@/components/calls/direct-call-room";
+import { CallSideBoard, type CallHighlight } from "@/components/calls/call-side-board";
 import { ensureSeeded } from "@/lib/ensure-seeded";
 import { getCurrentUser, getDirectCall, getNotifications } from "@/lib/queries";
+
+function demoHighlights(peer: {
+  name: string
+  avatarColor: string
+}, me: { name: string; avatarColor: string }): CallHighlight[] {
+  return [
+    {
+      id: "hl_peer_1",
+      speaker: peer.name,
+      color: peer.avatarColor,
+      text: "Thanks for hopping on — let’s keep this tight and decide owners before we drop.",
+      atLabel: "00:12",
+    },
+    {
+      id: "hl_me_1",
+      speaker: me.name,
+      color: me.avatarColor,
+      text: "Agreed. I’ll capture the decision here so we don’t need a follow-up thread.",
+      atLabel: "00:28",
+    },
+    {
+      id: "hl_peer_2",
+      speaker: peer.name,
+      color: peer.avatarColor,
+      text: "If privacy is on, keep this between us until we publish a written update.",
+      atLabel: "00:41",
+    },
+  ];
+}
 
 export default async function DirectCallPage({ params }: { params: { id: string } }) {
   if (!(await ensureSeeded())) redirect("/setup");
@@ -19,9 +49,11 @@ export default async function DirectCallPage({ params }: { params: { id: string 
 
   const peer = call.callerId === user.id ? call.callee : call.caller;
   const meUser = call.callerId === user.id ? call.caller : call.callee;
+  const highlights = demoHighlights(peer, meUser);
 
   return (
     <AppShell
+      callMode
       user={user}
       unread={notifications.filter((n) => !n.read).length}
       header={
@@ -30,21 +62,20 @@ export default async function DirectCallPage({ params }: { params: { id: string 
             People
           </Link>
           <span className="text-faint">/</span>
-          <p className="truncate text-sm font-medium text-ink">Call with {peer.name}</p>
+          <p className="truncate text-sm font-medium text-ink">Call · {peer.name}</p>
           {call.status === "active" && <Badge tone="success">Live</Badge>}
+          {call.privacyMode && <Badge tone="success">Private</Badge>}
         </div>
       }
-      contextTitle="1:1 call"
+      contextTitle="Statement board"
       context={
-        <div className="space-y-3 text-xs text-muted">
-          <p>
-            Direct call between you and {peer.name}. Toggle privacy anytime. End the call before
-            dialing someone else.
-          </p>
-          <Badge tone={call.privacyMode ? "success" : "accent"}>
-            {call.privacyMode ? "Private" : "Standard"}
-          </Badge>
-        </div>
+        <CallSideBoard
+          peerName={peer.name}
+          peerTitle={peer.title}
+          peerColor={peer.avatarColor}
+          privacyMode={call.privacyMode}
+          highlights={highlights}
+        />
       }
     >
       <DirectCallRoom

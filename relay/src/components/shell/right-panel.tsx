@@ -8,17 +8,21 @@ export function RightPanel({
   onClose,
   title,
   children,
+  /** Show on all breakpoints (used for call statement board) */
+  forceVisible = false,
 }: {
   open: boolean
   onClose: () => void
   title: string
   children: React.ReactNode
+  forceVisible?: boolean
 }) {
   return (
     <aside
       className={cn(
-        "hidden h-full shrink-0 flex-col border-l border-line bg-[var(--right)] transition-[width,opacity] duration-200 xl:flex",
-        open ? "w-[300px] opacity-100" : "w-0 overflow-hidden border-l-0 opacity-0"
+        "h-full shrink-0 flex-col border-l border-line bg-[var(--right)] transition-[width,opacity] duration-200",
+        forceVisible ? "flex" : "hidden xl:flex",
+        open ? (forceVisible ? "w-[320px] opacity-100" : "w-[300px] opacity-100") : "w-0 overflow-hidden border-l-0 opacity-0"
       )}
     >
       <div className="flex h-12 items-center justify-between border-b border-line px-4">
