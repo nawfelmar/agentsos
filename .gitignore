@@ -16,3 +16,10 @@ examples/demo-repo/.agentos/
 .DS_Store
 .env
 *.log
+
+# Relay app
+relay/node_modules/
+relay/.next/
+relay/prisma/dev.db
+relay/prisma/dev.db-journal
+relay/.env
