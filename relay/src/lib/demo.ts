@@ -10,6 +10,6 @@ export function integrationLabel(kind: "llm" | "av" | "calendar") {
   if (kind === "av")
     return DEMO.hasAv
       ? "Live A/V (LiveKit)"
-      : "Local camera/mic · stock peer video";
+      : "Local mic · stock peer A/V";
   return DEMO.hasCalendar ? "Live calendar" : "Demo calendar";
 }

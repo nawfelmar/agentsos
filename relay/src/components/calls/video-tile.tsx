@@ -32,16 +32,11 @@ export function VideoTile({
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
-    if (stream && !camOff) {
+
+    if (stream && (!camOff || playAudio)) {
       el.srcObject = stream;
       el.muted = !playAudio;
       el.volume = playAudio ? 1 : 0;
-      void el.play().catch(() => undefined);
-    } else if (stream && camOff && playAudio) {
-      // Camera off but still hear audio
-      el.srcObject = stream;
-      el.muted = false;
-      el.volume = 1;
       void el.play().catch(() => undefined);
     } else {
       el.srcObject = null;

@@ -5,7 +5,7 @@ import { DEMO_PEER_MEDIA } from "@/lib/media/demo-media";
 import { createSyntheticMediaStream } from "@/lib/media/synthetic-stream";
 import { createVideoFileMediaStream } from "@/lib/media/video-file-stream";
 
-/** Demo peer MediaStream: looping stock video+audio, with canvas fallback. */
+/** Demo peer MediaStream: looping stock video + soundtrack (their mic). */
 export function useDemoPeerMedia(
   active: boolean,
   peer: { name: string; color: string }
@@ -22,7 +22,7 @@ export function useDemoPeerMedia(
     let usingFile = false;
 
     const fromFile = createVideoFileMediaStream(DEMO_PEER_MEDIA, (ready) => {
-      if (ready.getVideoTracks().length > 0) {
+      if (ready.getVideoTracks().length > 0 || ready.getAudioTracks().length > 0) {
         usingFile = true;
         syn?.stop();
         syn = null;
@@ -31,7 +31,11 @@ export function useDemoPeerMedia(
     });
 
     const timer = window.setTimeout(() => {
-      if (usingFile || fromFile.stream.getVideoTracks().length > 0) {
+      if (
+        usingFile ||
+        fromFile.stream.getVideoTracks().length > 0 ||
+        fromFile.stream.getAudioTracks().length > 0
+      ) {
         usingFile = true;
         setStream(fromFile.stream);
         return;
@@ -42,7 +46,7 @@ export function useDemoPeerMedia(
         subtitle: "Connected · demo peer stream",
       });
       setStream(syn.stream);
-    }, 900);
+    }, 1200);
 
     return () => {
       window.clearTimeout(timer);

@@ -1,11 +1,10 @@
 # Demo media
 
-- `demo-peer.mp4` — stock A/V used for single-browser 1:1 call demos:
+- `demo-peer.mp4` — stock A/V for the **remote peer** in single-browser 1:1 call demos:
   - **Video:** Mixkit clip (`42721`) — person outdoors
-  - **Audio:** MDN CC0 `friday.mp4` soundtrack muxed in (Mixkit source had no audio track)
+  - **Audio:** MDN CC0 `friday.mp4` soundtrack muxed in (used as their mic / speaker audio)
 
-  Used for the remote peer full-bleed feed **and** as the demo microphone audio
-  on the local stream (real mic tracks are replaced).
+  Your own mic stays on the local stream (`getUserMedia`); mute/unmute toggles that track.
 
   Sources:
   - https://assets.mixkit.co/videos/42721/42721-720.mp4 (Mixkit free license)

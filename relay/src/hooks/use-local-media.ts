@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DEMO_PEER_MEDIA } from "@/lib/media/demo-media";
 import { createSyntheticMediaStream } from "@/lib/media/synthetic-stream";
-import { createVideoFileMediaStream } from "@/lib/media/video-file-stream";
 
 export type LocalMediaState = {
   stream: MediaStream | null
@@ -19,10 +17,7 @@ export type LocalMediaState = {
   stop: () => void
 };
 
-/**
- * Local call media: real/synthetic camera + audio from the demo stock file
- * (replaces the microphone in single-browser demos).
- */
+/** Acquire microphone + camera; fall back to a synthetic stream if devices are unavailable. */
 export function useLocalMedia(
   active: boolean,
   identity?: { name: string; color: string }
@@ -34,11 +29,11 @@ export function useLocalMedia(
   const [ready, setReady] = useState(false);
   const [usingFallback, setUsingFallback] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
-  const stopExtrasRef = useRef<(() => void) | null>(null);
+  const stopFallbackRef = useRef<(() => void) | null>(null);
 
   const stop = useCallback(() => {
-    stopExtrasRef.current?.();
-    stopExtrasRef.current = null;
+    stopFallbackRef.current?.();
+    stopFallbackRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     setStream(null);
@@ -72,70 +67,19 @@ export function useLocalMedia(
       });
     };
 
-    const withDemoAudio = (
-      videoStream: MediaStream,
-      fallback: boolean,
-      warn?: string
-    ) => {
-      // Drop real mic tracks — demo uses stock-file audio instead.
-      videoStream.getAudioTracks().forEach((t) => {
-        videoStream.removeTrack(t);
-        t.stop();
-      });
-
-      const composed = new MediaStream(videoStream.getVideoTracks());
-      const file = createVideoFileMediaStream(
-        DEMO_PEER_MEDIA,
-        (readyStream) => {
-          if (cancelled) return;
-          for (const track of readyStream.getAudioTracks()) {
-            if (!composed.getAudioTracks().some((t) => t.id === track.id)) {
-              composed.addTrack(track);
-            }
-          }
-          composed.getAudioTracks().forEach((t) => {
-            t.enabled = !muted;
-          });
-          attach(composed, fallback, warn);
-        },
-        { includeVideo: false, includeAudio: true }
-      );
-
-      const prevStop = stopExtrasRef.current;
-      stopExtrasRef.current = () => {
-        file.stop();
-        prevStop?.();
-      };
-
-      // If audio is already present, attach immediately; otherwise wait for onReady.
-      if (file.stream.getAudioTracks().length > 0) {
-        for (const track of file.stream.getAudioTracks()) {
-          composed.addTrack(track);
-        }
-        attach(composed, fallback, warn);
-      } else {
-        // Show video while audio catch-up is in flight
-        attach(composed, fallback, warn);
-      }
-    };
-
     const useFallback = (reason: string) => {
       const syn = createSyntheticMediaStream({
         name: identity?.name ?? "You",
         color: identity?.color ?? "#5B8DEF",
-        subtitle: "Synthetic camera · demo file audio",
+        subtitle: "Synthetic A/V · no camera device",
       });
-      const prev = stopExtrasRef.current;
-      stopExtrasRef.current = () => {
-        syn.stop();
-        prev?.();
-      };
-      withDemoAudio(syn.stream, true, `${reason} Audio from demo video.`);
+      stopFallbackRef.current = syn.stop;
+      attach(syn.stream, true, reason);
     };
 
     (async () => {
       if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-        useFallback("Camera/microphone APIs unavailable — using synthetic camera.");
+        useFallback("Camera/microphone APIs unavailable — using synthetic A/V.");
         return;
       }
       try {
@@ -149,13 +93,13 @@ export function useLocalMedia(
         });
         if (!media.getVideoTracks().length && !media.getAudioTracks().length) {
           media.getTracks().forEach((t) => t.stop());
-          useFallback("No media tracks returned — using synthetic camera.");
+          useFallback("No media tracks returned — using synthetic A/V.");
           return;
         }
-        withDemoAudio(media, false);
+        attach(media, false);
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Could not access camera/microphone";
-        useFallback(`${msg} — using synthetic camera.`);
+        useFallback(`${msg} — using synthetic A/V so the call still has video/audio tracks.`);
       }
     })();
 
