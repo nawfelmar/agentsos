@@ -7,10 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { DemoBanner } from "@/components/ui/demo-banner";
 import { MeetingRoomControls } from "@/components/meetings/meeting-room-controls";
 import { MeetingSummaryCard } from "@/components/meetings/meeting-summary-card";
+import { PositionsBoard } from "@/components/meetings/positions-board";
 import { parseJson } from "@/lib/utils";
 import { ensureSeeded } from "@/lib/ensure-seeded";
 import { getCurrentUser, getMeeting, getNotifications } from "@/lib/queries";
 import type { MeetingSummary } from "@/lib/domain/meeting-summary";
+import type { MeetingPositions } from "@/lib/domain/meeting-positions";
 
 export default async function MeetingDetailPage({ params }: { params: { id: string } }) {
   if (!(await ensureSeeded())) redirect("/setup");
@@ -23,9 +25,14 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
   if (!meeting) notFound();
 
   const agenda = parseJson<{ item: string; owner: string }[]>(meeting.agendaJson, []);
-  const outcomes = parseJson<{ summary?: string; structured?: MeetingSummary }>(
-    meeting.outcomesJson,
-    {}
+  const outcomes = parseJson<{
+    summary?: string
+    structured?: MeetingSummary
+    positions?: MeetingPositions
+  }>(meeting.outcomesJson, {});
+
+  const participantColors = Object.fromEntries(
+    meeting.participants.map((p) => [p.user.name, p.user.avatarColor])
   );
 
   return (
@@ -45,8 +52,8 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
       context={
         <div className="space-y-3 text-xs text-muted">
           <p>
-            Relay keeps summaries short and structured: TL;DR → decisions → owners → open questions →
-            audience notes. No transcript dump.
+            Statement highlights show each person’s stance in plain language — in favor, opposed,
+            conditional, or still asking — so alignment is obvious without reading a transcript.
           </p>
           <Badge tone="accent">Demo AI participant</Badge>
           {meeting.isAiProposed && (
@@ -77,6 +84,12 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
             <Badge tone="muted">{meeting.status}</Badge>
           </div>
         </div>
+
+        <PositionsBoard
+          meetingId={meeting.id}
+          positions={outcomes.positions ?? null}
+          participantColors={participantColors}
+        />
 
         <MeetingSummaryCard
           meetingId={meeting.id}

@@ -9,6 +9,11 @@ import {
   MeetingSummarySchema,
   type MeetingSummary,
 } from "@/lib/domain/meeting-summary";
+import {
+  buildDemoMeetingPositions,
+  MeetingPositionsSchema,
+  type MeetingPositions,
+} from "@/lib/domain/meeting-positions";
 
 export async function createMeeting(input: {
   title: string
@@ -149,10 +154,88 @@ async function maybeLiveSummary(
   }
 }
 
+function buildPositionsForMeeting(
+  meeting: Awaited<ReturnType<typeof loadSummaryContext>>["meeting"]
+): MeetingPositions {
+  return buildDemoMeetingPositions({
+    title: meeting.title,
+    purpose: meeting.purpose,
+    participants: meeting.participants.map((p) => ({
+      name: p.user.name,
+      title: p.user.title,
+      color: p.user.avatarColor,
+    })),
+    isAiProposed: meeting.isAiProposed,
+  });
+}
+
+/** Capture per-person statement highlights so positions are obvious. */
+export async function generateMeetingPositions(meetingId: string) {
+  const { meeting } = await loadSummaryContext(meetingId);
+  let positions = buildPositionsForMeeting(meeting);
+
+  if (DEMO.hasLlm && process.env.OPENAI_API_KEY) {
+    try {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          temperature: 0.2,
+          messages: [
+            {
+              role: "system",
+              content:
+                "Extract each participant's clear position on the meeting topic. Return JSON: {topic, alignmentLabel, highlights:[{id,speaker,position,highlight,stance,topic,atLabel}]}. stance must be for|against|conditional|neutral|questioning. position = plain language; highlight = short quote. Do not invent speakers not in the participant list when possible.",
+            },
+            {
+              role: "user",
+              content: JSON.stringify({
+                title: meeting.title,
+                purpose: meeting.purpose,
+                participants: meeting.participants.map((p) => p.user.name),
+              }),
+            },
+          ],
+          response_format: { type: "json_object" },
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        positions = MeetingPositionsSchema.parse({
+          ...JSON.parse(data.choices[0].message.content),
+          generatedAt: new Date().toISOString(),
+          mode: "live",
+        });
+      }
+    } catch {
+      // keep demo positions
+    }
+  }
+
+  const previous = parseJson<Record<string, unknown>>(meeting.outcomesJson, {});
+  await prisma.meeting.update({
+    where: { id: meetingId },
+    data: {
+      outcomesJson: JSON.stringify({
+        ...previous,
+        positions,
+      }),
+    },
+  });
+
+  revalidatePath(`/meetings/${meetingId}`);
+  return { ok: true as const, positions };
+}
+
 /** Generate a structured summary without necessarily closing the meeting. */
 export async function generateMeetingSummary(meetingId: string) {
   const { meeting, context } = await loadSummaryContext(meetingId);
   const summary = (await maybeLiveSummary(context)) ?? buildDemoMeetingSummary(context);
+  const positions = buildPositionsForMeeting(meeting);
 
   const previous = parseJson<Record<string, unknown>>(meeting.outcomesJson, {});
   await prisma.meeting.update({
@@ -162,6 +245,7 @@ export async function generateMeetingSummary(meetingId: string) {
         ...previous,
         summary: summary.tldr,
         structured: summary,
+        positions: (previous.positions as MeetingPositions | undefined) ?? positions,
       }),
       preparationStatus: "complete",
     },
