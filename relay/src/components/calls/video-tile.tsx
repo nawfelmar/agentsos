@@ -12,6 +12,7 @@ export function VideoTile({
   muted = false,
   camOff = false,
   mirrored = false,
+  playAudio = false,
   label,
   className,
 }: {
@@ -21,6 +22,8 @@ export function VideoTile({
   muted?: boolean
   camOff?: boolean
   mirrored?: boolean
+  /** When true, play the stream's audio (remote peer). Local self-view stays silent. */
+  playAudio?: boolean
   label?: string
   className?: string
 }) {
@@ -31,11 +34,19 @@ export function VideoTile({
     if (!el) return;
     if (stream && !camOff) {
       el.srcObject = stream;
+      el.muted = !playAudio;
+      el.volume = playAudio ? 1 : 0;
+      void el.play().catch(() => undefined);
+    } else if (stream && camOff && playAudio) {
+      // Camera off but still hear audio
+      el.srcObject = stream;
+      el.muted = false;
+      el.volume = 1;
       void el.play().catch(() => undefined);
     } else {
       el.srcObject = null;
     }
-  }, [stream, camOff]);
+  }, [stream, camOff, playAudio]);
 
   const showVideo = Boolean(stream && !camOff);
 
@@ -50,8 +61,7 @@ export function VideoTile({
         ref={videoRef}
         autoPlay
         playsInline
-        // Always mute the element for autoplay; call mute state is track.enabled
-        muted
+        muted={!playAudio}
         className={cn(
           "h-full w-full object-cover",
           mirrored && "scale-x-[-1]",

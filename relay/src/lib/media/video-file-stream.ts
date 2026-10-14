@@ -1,11 +1,15 @@
-/** Turn a looping <video> into a MediaStream for demo peer feeds. */
+/** Turn a looping <video> into a MediaStream (video + file audio) for demos. */
 export function createVideoFileMediaStream(
   src: string,
-  onReady?: (stream: MediaStream) => void
+  onReady?: (stream: MediaStream) => void,
+  opts?: { includeVideo?: boolean; includeAudio?: boolean }
 ): {
   stream: MediaStream
   stop: () => void
 } {
+  const includeVideo = opts?.includeVideo ?? true;
+  const includeAudio = opts?.includeAudio ?? true;
+
   if (typeof document === "undefined") {
     return { stream: new MediaStream(), stop: () => undefined };
   }
@@ -13,7 +17,9 @@ export function createVideoFileMediaStream(
   const video = document.createElement("video");
   video.src = src;
   video.loop = true;
-  video.muted = true;
+  // Keep element silent in the page; audio is played via the MediaStream sink.
+  video.muted = false;
+  video.volume = 0;
   video.playsInline = true;
   video.preload = "auto";
   video.crossOrigin = "anonymous";
@@ -24,36 +30,12 @@ export function createVideoFileMediaStream(
 
   let stopped = false;
   let capture: MediaStream | null = null;
-  let audioStop = () => undefined as void;
-
   const stream = new MediaStream();
 
-  try {
-    const audioCtx = new AudioContext();
-    const oscillator = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    gain.gain.value = 0.0001;
-    oscillator.frequency.value = 180;
-    oscillator.connect(gain);
-    const dest = audioCtx.createMediaStreamDestination();
-    gain.connect(dest);
-    oscillator.start();
-    const audioTrack = dest.stream.getAudioTracks()[0];
-    if (audioTrack) stream.addTrack(audioTrack);
-    audioStop = () => {
-      try {
-        oscillator.stop();
-      } catch {
-        /* noop */
-      }
-      void audioCtx.close();
-    };
-  } catch {
-    /* audio optional */
-  }
-
   const startCapture = () => {
-    if (stopped || stream.getVideoTracks().length > 0) return;
+    if (stopped) return;
+    if (includeVideo && stream.getVideoTracks().length > 0) return;
+    if (!includeVideo && includeAudio && stream.getAudioTracks().length > 0) return;
 
     const el = video as HTMLVideoElement & {
       captureStream?: (fps?: number) => MediaStream
@@ -67,8 +49,19 @@ export function createVideoFileMediaStream(
 
     try {
       capture = captureFn(24);
-      for (const track of capture.getVideoTracks()) {
-        stream.addTrack(track);
+      if (includeVideo) {
+        for (const track of capture.getVideoTracks()) {
+          stream.addTrack(track);
+        }
+      } else {
+        capture.getVideoTracks().forEach((t) => t.stop());
+      }
+      if (includeAudio) {
+        for (const track of capture.getAudioTracks()) {
+          stream.addTrack(track);
+        }
+      } else {
+        capture.getAudioTracks().forEach((t) => t.stop());
       }
       onReady?.(stream);
     } catch {
@@ -77,7 +70,15 @@ export function createVideoFileMediaStream(
   };
 
   const play = () => {
-    void video.play().then(startCapture).catch(() => startCapture());
+    void video.play().then(startCapture).catch(() => {
+      // Autoplay with audio can fail; retry muted then unmute for capture.
+      video.muted = true;
+      void video.play().then(() => {
+        video.muted = false;
+        video.volume = 0;
+        startCapture();
+      }).catch(() => startCapture());
+    });
   };
 
   if (video.readyState >= 2) play();
@@ -96,7 +97,6 @@ export function createVideoFileMediaStream(
       video.remove();
       capture?.getTracks().forEach((t) => t.stop());
       stream.getTracks().forEach((t) => t.stop());
-      audioStop();
     },
   };
 }

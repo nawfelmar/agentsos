@@ -91,7 +91,8 @@ export function DirectCallRoom({
         stream={status === "active" ? peerStream : null}
         name={peer.name}
         color={peer.color}
-        label={ringing ? "Ringing…" : "Remote"}
+        playAudio={status === "active"}
+        label={ringing ? "Ringing…" : "Remote · demo A/V"}
         className="absolute inset-0 h-full w-full rounded-none border-0"
       />
 
