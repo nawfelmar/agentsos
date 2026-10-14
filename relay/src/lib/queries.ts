@@ -260,6 +260,15 @@ export async function getUsers() {
   return prisma.user.findMany({ orderBy: { name: "asc" } });
 }
 
+export async function getCoordinationPrompts() {
+  const org = await prisma.organization.findFirst();
+  if (!org) return [];
+  return prisma.coordinationPrompt.findMany({
+    where: { organizationId: org.id },
+    orderBy: { updatedAt: "desc" },
+  });
+}
+
 export async function searchMemory(query: string) {
   const q = query.trim();
   if (!q) return { decisions: [], commitments: [], messages: [] };

@@ -11,6 +11,7 @@ async function main() {
   await prisma.coordinationEvent.deleteMany();
   await prisma.coordinationRun.deleteMany();
   await prisma.stakeholderUpdate.deleteMany();
+  await prisma.coordinationPrompt.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.autonomyPolicy.deleteMany();
@@ -584,6 +585,43 @@ async function main() {
         { claim: "Scoped mock not yet approved for RC path", kind: "fact" },
       ]),
     },
+  });
+
+  await prisma.coordinationPrompt.createMany({
+    data: [
+      {
+        organizationId: org.id,
+        title: "Approve pending meeting",
+        prompt: "Approve the pending meeting for the auth-sdk blocker",
+        actionKind: "approve_pending",
+        runId: run.id,
+        createdById: byId.user_alex.id,
+      },
+      {
+        organizationId: org.id,
+        title: "Escalate to VP Eng",
+        prompt: "Escalate this to Priya and draft a management update",
+        actionKind: "escalate",
+        runId: run.id,
+        createdById: byId.user_alex.id,
+      },
+      {
+        organizationId: org.id,
+        title: "Prefer async clarification",
+        prompt: "Ask Jordan asynchronously whether a mock is acceptable for RC",
+        actionKind: "async_question",
+        runId: run.id,
+        createdById: byId.user_alex.id,
+      },
+      {
+        organizationId: org.id,
+        title: "Pause until OPS clears",
+        prompt: "Pause automation on this run until OPS-1842 lands",
+        actionKind: "pause_run",
+        runId: run.id,
+        createdById: byId.user_alex.id,
+      },
+    ],
   });
 
   console.log("Seeded Northline Systems workspace for Relay demo.");

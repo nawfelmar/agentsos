@@ -4,12 +4,12 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
-  approveProposedMeeting,
   pauseCoordinationRun,
   rejectProposedMeeting,
   resumeCoordinationRun,
   runClarification,
 } from "@/lib/actions/coordination";
+import { confirmPromptProposedAction } from "@/lib/actions/prompts";
 
 export function RunActions({
   runId,
@@ -33,13 +33,13 @@ export function RunActions({
             disabled={pending}
             onClick={() =>
               start(async () => {
-                await approveProposedMeeting(proposedActionId);
+                await confirmPromptProposedAction(proposedActionId);
                 router.push(`/coordination/${runId}?approved=1`);
                 router.refresh();
               })
             }
           >
-            Approve meeting
+            Approve / confirm
           </Button>
           <Button
             variant="secondary"

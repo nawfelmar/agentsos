@@ -25,6 +25,7 @@ model Organization {
   notifications Notification[]
   policies  AutonomyPolicy[]
   auditEvents AuditEvent[]
+  prompts   CoordinationPrompt[]
 }
 
 model User {
@@ -400,4 +401,21 @@ model StakeholderUpdate {
   factsJson      String   @default("[]")
   sentAt         DateTime?
   createdAt      DateTime @default(now())
+}
+
+/// Reusable natural-language prompts that map to coordination actions.
+model CoordinationPrompt {
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  prompt         String
+  /// Optional pinned action kind; when null, prompt is interpreted freely.
+  actionKind     String?
+  /// Optional default run scope
+  runId          String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
 }

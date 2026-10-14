@@ -6,7 +6,8 @@ import { useTransition } from "react";
 import { AlertTriangle, CalendarClock, CheckCircle2, Clock3, HelpCircle } from "lucide-react";
 import { Badge, severityTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { approveProposedMeeting, rejectProposedMeeting } from "@/lib/actions/coordination";
+import { rejectProposedMeeting } from "@/lib/actions/coordination";
+import { confirmPromptProposedAction } from "@/lib/actions/prompts";
 
 const icons = {
   blocker: AlertTriangle,
@@ -73,8 +74,12 @@ export function AttentionQueue({ items }: { items: AttentionItem[] }) {
                           disabled={pending}
                           onClick={() =>
                             start(async () => {
-                              const res = await approveProposedMeeting(item.proposedActionId!);
-                              router.push(`/coordination/${res.runId}?approved=1`);
+                              const res = await confirmPromptProposedAction(item.proposedActionId!);
+                              const runId =
+                                res && "runId" in res && typeof res.runId === "string"
+                                  ? res.runId
+                                  : "run_auth_blocker";
+                              router.push(`/coordination/${runId}?approved=1`);
                               router.refresh();
                             })
                           }

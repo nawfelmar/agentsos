@@ -4,9 +4,19 @@ import { format } from "date-fns";
 import { AppShell } from "@/components/shell/app-shell";
 import { Badge, severityTone } from "@/components/ui/badge";
 import { RunActions } from "@/components/coordination/run-actions";
+import {
+  ConfirmPendingPromptAction,
+  PromptComposer,
+} from "@/components/coordination/prompt-composer";
 import { formatRelative, parseJson } from "@/lib/utils";
 import { ensureSeeded } from "@/lib/ensure-seeded";
-import { getCoordinationRun, getCurrentUser, getNotifications } from "@/lib/queries";
+import {
+  getCoordinationPrompts,
+  getCoordinationRun,
+  getCoordinationRuns,
+  getCurrentUser,
+  getNotifications,
+} from "@/lib/queries";
 
 export default async function CoordinationRunPage({
   params,
@@ -16,10 +26,12 @@ export default async function CoordinationRunPage({
   searchParams: { approved?: string }
 }) {
   if (!(await ensureSeeded())) redirect("/setup");
-  const [user, run, notifications] = await Promise.all([
+  const [user, run, notifications, savedPrompts, allRuns] = await Promise.all([
     getCurrentUser(),
     getCoordinationRun(params.id),
     getNotifications(),
+    getCoordinationPrompts(),
+    getCoordinationRuns(),
   ]);
   if (!user) redirect("/setup");
   if (!run) notFound();
@@ -76,6 +88,12 @@ export default async function CoordinationRunPage({
           status={run.status}
           proposedActionId={pending?.id}
           blockerId={run.blockerId}
+        />
+
+        <PromptComposer
+          runs={allRuns.map((r) => ({ id: r.id, title: r.title, status: r.status }))}
+          savedPrompts={savedPrompts}
+          defaultRunId={run.id}
         />
 
         <div className="grid gap-5 lg:grid-cols-2">
@@ -155,6 +173,11 @@ export default async function CoordinationRunPage({
                   >
                     Open proposed meeting →
                   </Link>
+                )}
+                {a.status === "pending" && (
+                  <div className="mt-3">
+                    <ConfirmPendingPromptAction proposedActionId={a.id} title={a.title} />
+                  </div>
                 )}
                 {a.approvals.map((ap) => (
                   <p key={ap.id} className="mt-2 text-[11px] text-faint">
