@@ -34,7 +34,7 @@ export function DirectCallRoom({
   peer: { id: string; name: string; color: string; title: string }
 }) {
   const live = status === "active" || status === "ringing";
-  const media = useLocalMedia(live);
+  const media = useLocalMedia(live, { name: me.name, color: me.color });
   const peerStream = useDemoPeerMedia(live, peer);
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -66,8 +66,7 @@ export function DirectCallRoom({
 
       {media.error && (
         <div className="rounded-relay border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">
-          Camera/mic: {media.error}. Allow permissions and reload, or check that no other app is
-          using the devices.
+          {media.error}
         </div>
       )}
 
@@ -78,8 +77,14 @@ export function DirectCallRoom({
           color={me.color}
           muted={media.muted}
           camOff={media.camOff}
-          mirrored
-          label={media.ready ? "You · live camera" : "You"}
+          mirrored={!media.usingFallback}
+          label={
+            media.usingFallback
+              ? "You · synthetic A/V"
+              : media.ready
+                ? "You · live camera"
+                : "You"
+          }
           className="aspect-video min-h-[220px]"
         />
         <VideoTile
@@ -154,8 +159,9 @@ export function DirectCallRoom({
       </div>
 
       <p className="text-center text-[11px] text-faint">
-        Your camera and microphone are live from this device. The other person is a demo peer stream
-        in this single-browser prototype (no LiveKit room yet).
+        {media.usingFallback
+          ? "No camera device detected — both tiles use synthetic A/V tracks so mute/camera still work."
+          : "Your camera and microphone are live from this device. The other person is a demo peer stream in this single-browser prototype."}
       </p>
     </div>
   );

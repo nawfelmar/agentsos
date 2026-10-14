@@ -40,7 +40,7 @@ export function MeetingRoomControls({
   const router = useRouter();
   const live = status === "in_progress";
   const ended = status === "completed" || status === "cancelled";
-  const media = useLocalMedia(live);
+  const media = useLocalMedia(live, { name: selfName, color: selfColor });
 
   return (
     <div className="mt-4 space-y-3">
