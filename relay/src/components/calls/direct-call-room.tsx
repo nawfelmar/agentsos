@@ -72,7 +72,7 @@ export function DirectCallRoom({
             await playRelayConnected();
             router.refresh();
           });
-        }, 1800);
+        }, 2400);
       } else {
         stopRelayRing();
       }
