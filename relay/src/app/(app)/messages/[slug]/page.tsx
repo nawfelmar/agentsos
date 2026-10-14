@@ -4,8 +4,7 @@ import { Hash, Lock, Phone } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { MessageComposer } from "@/components/messages/composer";
-import { MessageThread } from "@/components/messages/message-thread";
+import { ChannelChat } from "@/components/messages/channel-chat";
 import { ensureSeeded } from "@/lib/ensure-seeded";
 import { getChannelBySlug, getCurrentUser, getNotifications } from "@/lib/queries";
 
@@ -171,25 +170,17 @@ export default async function ChannelPage({ params }: { params: { slug: string }
           )}
         </div>
 
-        <div className="relative min-h-0 flex-1 overflow-y-auto">
-          <MessageThread
-            messages={channel.messages}
-            currentUserId={user.id}
-            channelSlug={channel.slug}
-            isDm={isDm}
-          />
-        </div>
-
-        <div className="relative">
-          <MessageComposer
-            channelSlug={channel.slug}
-            placeholder={
-              isDm
-                ? `Message ${peer?.name.split(" ")[0] ?? "them"}…`
-                : `Message #${channel.name}…`
-            }
-          />
-        </div>
+        <ChannelChat
+          messages={channel.messages}
+          currentUserId={user.id}
+          channelSlug={channel.slug}
+          isDm={isDm}
+          placeholder={
+            isDm
+              ? `Message ${peer?.name.split(" ")[0] ?? "them"}…`
+              : `Message #${channel.name}…`
+          }
+        />
       </div>
     </AppShell>
   );

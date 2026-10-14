@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { summarizeConversation } from "@/lib/ai/provider";
+import { MAX_SUMMARY_MESSAGES } from "@/lib/messages-constants";
 
 function dmSlugFor(aId: string, bId: string) {
   const [x, y] = [aId, bId].sort();
@@ -115,12 +116,44 @@ export async function aiSummarizeChannel(channelSlug: string) {
       messages: {
         include: { author: true },
         orderBy: { createdAt: "asc" },
-        take: 50,
+        take: MAX_SUMMARY_MESSAGES,
       },
     },
   });
   if (!channel) throw new Error("Channel not found");
   return summarizeConversation(
     channel.messages.map((m) => ({ author: m.author.name, body: m.body }))
+  );
+}
+
+/** Summarize an explicit selection of messages (max 30) in a channel. */
+export async function aiSummarizeSelectedMessages(
+  channelSlug: string,
+  messageIds: string[]
+) {
+  const unique = Array.from(
+    new Set(messageIds.map((id) => id.trim()).filter(Boolean))
+  );
+  if (unique.length === 0) throw new Error("Select at least one message");
+  if (unique.length > MAX_SUMMARY_MESSAGES) {
+    throw new Error(`Select at most ${MAX_SUMMARY_MESSAGES} messages`);
+  }
+
+  const channel = await prisma.channel.findFirst({ where: { slug: channelSlug } });
+  if (!channel) throw new Error("Channel not found");
+
+  const messages = await prisma.message.findMany({
+    where: {
+      channelId: channel.id,
+      id: { in: unique },
+    },
+    include: { author: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (messages.length === 0) throw new Error("No matching messages in this chat");
+
+  return summarizeConversation(
+    messages.map((m) => ({ author: m.author.name, body: m.body }))
   );
 }

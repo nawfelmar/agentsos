@@ -2,22 +2,31 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Paperclip, Send, Sparkles } from "lucide-react";
+import { ListChecks, Paperclip, Send, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { sendMessage, aiSummarizeChannel } from "@/lib/actions/messages";
+import { sendMessage } from "@/lib/actions/messages";
 
 export function MessageComposer({
   channelSlug,
   placeholder = "Write a message…",
+  summary = null,
+  onSummaryChange,
+  selecting = false,
+  onStartSelect,
+  onCancelSelect,
 }: {
   channelSlug: string
   placeholder?: string
+  summary?: string | null
+  onSummaryChange?: (summary: string | null) => void
+  selecting?: boolean
+  onStartSelect?: () => void
+  onCancelSelect?: () => void
 }) {
   const [body, setBody] = useState("");
-  const [summary, setSummary] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
-  const canSend = Boolean(body.trim()) && !pending;
+  const canSend = Boolean(body.trim()) && !pending && !selecting;
 
   const submit = () => {
     if (!canSend) return;
@@ -34,9 +43,19 @@ export function MessageComposer({
       <div className="relative mx-auto max-w-3xl">
         {summary && (
           <div className="mb-3 animate-fade-up rounded-relay border border-accent/20 bg-accent-dim/50 px-3.5 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent">
-              AI summary
-            </p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent">
+                AI summary
+              </p>
+              <button
+                type="button"
+                className="relay-focus rounded p-0.5 text-faint hover:text-ink"
+                onClick={() => onSummaryChange?.(null)}
+                aria-label="Dismiss summary"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
             <p className="mt-1 text-sm leading-relaxed text-muted">{summary}</p>
           </div>
         )}
@@ -46,8 +65,13 @@ export function MessageComposer({
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={2}
-            placeholder={placeholder}
-            className="max-h-40 min-h-[56px] w-full resize-none bg-transparent px-4 pt-3.5 text-[14px] leading-relaxed text-ink outline-none placeholder:text-faint/80"
+            disabled={selecting}
+            placeholder={
+              selecting
+                ? "Select up to 30 messages above, then summarize…"
+                : placeholder
+            }
+            className="max-h-40 min-h-[56px] w-full resize-none bg-transparent px-4 pt-3.5 text-[14px] leading-relaxed text-ink outline-none placeholder:text-faint/80 disabled:opacity-60"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -61,29 +85,38 @@ export function MessageComposer({
                 type="button"
                 className="relay-focus rounded-lg p-2 text-faint transition-colors hover:bg-surface-2 hover:text-ink"
                 title="Attach (UI)"
+                disabled={selecting}
               >
                 <Paperclip className="h-4 w-4" />
               </button>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={pending}
-                title="Summarize conversation"
-                className="rounded-lg text-faint hover:text-ink"
-                onClick={() =>
-                  start(async () => {
-                    const res = await aiSummarizeChannel(channelSlug);
-                    setSummary(res.summary);
-                  })
-                }
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Summarize
-              </Button>
+              {selecting ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-lg text-faint hover:text-ink"
+                  onClick={onCancelSelect}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Cancel select
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={pending}
+                  title="Select messages to summarize (max 30)"
+                  className="rounded-lg text-faint hover:text-ink"
+                  onClick={onStartSelect}
+                >
+                  <ListChecks className="h-3.5 w-3.5" />
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Select & summarize
+                </Button>
+              )}
             </div>
             <div className="flex items-center gap-2.5">
               <span className="hidden font-mono text-[10px] tracking-wide text-faint sm:inline">
-                ↵ send
+                {selecting ? "max 30" : "↵ send"}
               </span>
               <Button
                 size="sm"
