@@ -50,11 +50,12 @@ export function VideoTile({
         ref={videoRef}
         autoPlay
         playsInline
-        muted={mirrored || muted}
+        // Always mute the element for autoplay; call mute state is track.enabled
+        muted
         className={cn(
           "h-full w-full object-cover",
           mirrored && "scale-x-[-1]",
-          !showVideo && "invisible absolute"
+          !showVideo && "invisible absolute inset-0"
         )}
       />
       {!showVideo && (

@@ -92,6 +92,12 @@ export function useLocalMedia(
             height: { ideal: 720 },
           },
         });
+        // Prefer real devices when at least one track is live
+        if (!media.getVideoTracks().length && !media.getAudioTracks().length) {
+          media.getTracks().forEach((t) => t.stop());
+          useFallback("No media tracks returned — using synthetic A/V.");
+          return;
+        }
         attach(media, false);
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Could not access camera/microphone";
