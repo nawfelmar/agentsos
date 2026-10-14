@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { parseJson } from "@/lib/utils";
 import type { MeetingPositions, Stance } from "@/lib/domain/meeting-positions";
 import { STANCES } from "@/lib/domain/meeting-positions";
+import { shouldSyncMeetingOutside } from "@/lib/domain/meeting-privacy";
 
 function revalidateMeeting(meetingId: string) {
   revalidatePath(`/meetings/${meetingId}`);
@@ -32,7 +33,8 @@ export async function startLiveMeeting(meetingId: string) {
   });
 
   const user = await prisma.user.findFirst({ where: { isCurrentUser: true } });
-  if (user) {
+  // Privacy mode: skip org-wide notifications so nothing leaks outside the room
+  if (user && shouldSyncMeetingOutside(meeting.privacyMode)) {
     await prisma.notification.create({
       data: {
         organizationId: user.organizationId,
@@ -128,17 +130,19 @@ export async function callPersonIntoMeeting(meetingId: string, userId: string) {
     });
   }
 
-  await prisma.notification.create({
-    data: {
-      organizationId: caller.organizationId,
-      userId: caller.id,
-      kind: "meeting",
-      title: `Called ${person.name}`,
-      body: `${person.name} joined “${meeting.title}” (demo call).`,
-      href: `/meetings/${meetingId}`,
-      read: false,
-    },
-  });
+  if (shouldSyncMeetingOutside(meeting.privacyMode)) {
+    await prisma.notification.create({
+      data: {
+        organizationId: caller.organizationId,
+        userId: caller.id,
+        kind: "meeting",
+        title: `Called ${person.name}`,
+        body: `${person.name} joined “${meeting.title}” (demo call).`,
+        href: `/meetings/${meetingId}`,
+        read: false,
+      },
+    });
+  }
 
   revalidateMeeting(meetingId);
   return { ok: true as const, name: person.name };

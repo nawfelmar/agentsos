@@ -6,21 +6,19 @@ import { Badge } from "@/components/ui/badge";
 import { DemoBanner } from "@/components/ui/demo-banner";
 import { MeetingSummaryCard } from "@/components/meetings/meeting-summary-card";
 import { SharedMeetingBoard } from "@/components/meetings/shared-meeting-board";
-import { CallAnyonePanel } from "@/components/meetings/call-anyone-panel";
 import { LiveStatementForm } from "@/components/meetings/live-statement-form";
 import { parseJson } from "@/lib/utils";
 import { ensureSeeded } from "@/lib/ensure-seeded";
-import { getCurrentUser, getMeeting, getNotifications, getUsers } from "@/lib/queries";
+import { getCurrentUser, getMeeting, getNotifications } from "@/lib/queries";
 import type { MeetingSummary } from "@/lib/domain/meeting-summary";
 import type { MeetingPositions } from "@/lib/domain/meeting-positions";
 
 export default async function MeetingDetailPage({ params }: { params: { id: string } }) {
   if (!(await ensureSeeded())) redirect("/setup");
-  const [user, meeting, notifications, directory] = await Promise.all([
+  const [user, meeting, notifications] = await Promise.all([
     getCurrentUser(),
     getMeeting(params.id),
     getNotifications(),
-    getUsers(),
   ]);
   if (!user) redirect("/setup");
   if (!meeting) notFound();
@@ -33,7 +31,6 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
   }>(meeting.outcomesJson, {});
 
   const live = meeting.status === "in_progress";
-  const inMeetingUserIds = meeting.participants.map((p) => p.userId);
 
   return (
     <AppShell
@@ -53,8 +50,8 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
       context={
         <div className="space-y-3 text-xs text-muted">
           <p>
-            Start the meeting, call any employee into the room, and pin statement highlights so everyone’s
-            position stays clear on the shared board.
+            Start the meeting for group A/V + the shared board. Direct 1:1 calls (with camera/mic) live
+            on People — Call next to anyone when you’re free.
           </p>
           <Badge tone={live ? "success" : "accent"}>{live ? "In progress" : "Ready to start"}</Badge>
         </div>
@@ -81,6 +78,9 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           status={meeting.status}
           topic={meeting.purpose ?? meeting.title}
           positions={outcomes.positions ?? null}
+          privacyMode={meeting.privacyMode}
+          selfName={user.name}
+          selfColor={user.avatarColor}
           participants={meeting.participants.map((p) => ({
             id: p.id,
             userId: p.userId,
@@ -92,33 +92,20 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
           }))}
         />
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <CallAnyonePanel
-            meetingId={meeting.id}
-            meetingLive={live}
-            inMeetingUserIds={inMeetingUserIds}
-            directory={directory.map((u) => ({
-              id: u.id,
-              name: u.name,
-              title: u.title,
-              avatarColor: u.avatarColor,
-              status: u.status,
-            }))}
-          />
-          <LiveStatementForm
-            meetingId={meeting.id}
-            participants={meeting.participants.map((p) => ({
-              userId: p.userId,
-              name: p.user.name,
-            }))}
-          />
-        </div>
+        <LiveStatementForm
+          meetingId={meeting.id}
+          participants={meeting.participants.map((p) => ({
+            userId: p.userId,
+            name: p.user.name,
+          }))}
+        />
 
         <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
           <MeetingSummaryCard
             meetingId={meeting.id}
             status={meeting.status}
             summary={outcomes.structured ?? null}
+            privacyMode={meeting.privacyMode}
           />
           <div className="space-y-4">
             <section className="rounded-relay border border-line bg-surface/60 p-4">
@@ -138,8 +125,35 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
             <section className="rounded-relay border border-line bg-surface/60 p-4">
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-faint">
                 Decisions & actions
+                {meeting.privacyMode ? " · in-meeting only" : ""}
               </p>
-              {meeting.decisions.length === 0 && meeting.actionItems.length === 0 ? (
+              {meeting.privacyMode ? (
+                outcomes.structured ? (
+                  <ul className="space-y-2">
+                    {outcomes.structured.decisions.map((d, i) => (
+                      <li key={`pd-${i}`} className="text-xs">
+                        <Badge tone="success">decision</Badge>
+                        <p className="mt-1 text-ink">{d.text}</p>
+                      </li>
+                    ))}
+                    {outcomes.structured.actionItems.map((a, i) => (
+                      <li key={`pa-${i}`} className="text-xs">
+                        <Badge tone="accent">action</Badge>
+                        <p className="mt-1 text-ink">{a.text}</p>
+                        <p className="text-faint">
+                          {a.owner}
+                          {a.due ? ` · ${a.due}` : ""}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-muted">
+                    Privacy mode keeps outcomes in this room — generate a summary to see them here
+                    without syncing to the project.
+                  </p>
+                )
+              ) : meeting.decisions.length === 0 && meeting.actionItems.length === 0 ? (
                 <p className="text-xs text-muted">Appear when you end & summarize the meeting.</p>
               ) : (
                 <ul className="space-y-2">

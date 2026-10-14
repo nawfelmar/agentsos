@@ -45,3 +45,7 @@ prisma/dev.db-journal
 .claude/
 .windsurf/
 skills-lock.json
+
+# Prisma SQLite path-drift leftovers
+prisma/prisma/
+prisma/*.bak*

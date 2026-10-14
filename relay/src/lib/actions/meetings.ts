@@ -14,6 +14,7 @@ import {
   MeetingPositionsSchema,
   type MeetingPositions,
 } from "@/lib/domain/meeting-positions";
+import { shouldSyncMeetingOutside } from "@/lib/domain/meeting-privacy";
 
 export async function createMeeting(input: {
   title: string
@@ -364,11 +365,42 @@ export async function generateMeetingPositions(meetingId: string) {
   return { ok: true as const, positions };
 }
 
+/** Toggle privacy mode: outcomes stay in-meeting only (no org memory / broader project sync). */
+export async function setMeetingPrivacyMode(meetingId: string, enabled: boolean) {
+  const meeting = await prisma.meeting.findUnique({ where: { id: meetingId } });
+  if (!meeting) throw new Error("Meeting not found");
+
+  await prisma.meeting.update({
+    where: { id: meetingId },
+    data: { privacyMode: enabled },
+  });
+
+  await prisma.auditEvent.create({
+    data: {
+      organizationId: meeting.organizationId,
+      actor: "human",
+      action: enabled ? "meeting.privacy.enabled" : "meeting.privacy.disabled",
+      targetType: "Meeting",
+      targetId: meeting.id,
+      detail: enabled
+        ? "Privacy mode on — nothing leaves this meeting toward org memory or project sync"
+        : "Privacy mode off — summaries may sync to Memory and the broader project",
+    },
+  });
+
+  revalidatePath(`/meetings/${meetingId}`);
+  revalidatePath("/meetings");
+  revalidatePath("/activity");
+  return { ok: true as const, privacyMode: enabled };
+}
+
 /** Generate a structured summary without necessarily closing the meeting. */
 export async function generateMeetingSummary(meetingId: string) {
   const { meeting, context } = await loadSummaryContext(meetingId);
   const summary = (await maybeLiveSummary(context)) ?? buildDemoMeetingSummary(context);
   const positions = buildPositionsForMeeting(meeting);
+  const privateMeeting = meeting.privacyMode;
+  const syncOutside = shouldSyncMeetingOutside(privateMeeting);
 
   const previous = parseJson<Record<string, unknown>>(meeting.outcomesJson, {});
   await prisma.meeting.update({
@@ -379,49 +411,54 @@ export async function generateMeetingSummary(meetingId: string) {
         summary: summary.tldr,
         structured: summary,
         positions: (previous.positions as MeetingPositions | undefined) ?? positions,
+        privacyMode: privateMeeting,
       }),
       preparationStatus: "complete",
     },
   });
 
-  // Mirror confirmed decisions / actions into memory if missing
-  const user = await prisma.user.findFirst({ where: { isCurrentUser: true } });
-  if (user) {
-    for (const d of summary.decisions) {
-      const exists = meeting.decisions.some((x) => x.title === d.text);
-      if (!exists) {
-        await prisma.decision.create({
-          data: {
-            organizationId: user.organizationId,
-            projectId: meeting.projectId,
-            meetingId: meeting.id,
-            ownerId: user.id,
-            title: d.text,
-            summary: summary.tldr,
-            status: d.status === "confirmed" ? "confirmed" : "proposed",
-            confirmedAt: d.status === "confirmed" ? new Date() : null,
-            evidenceJson: JSON.stringify([{ label: "Meeting summary", href: `/meetings/${meeting.id}` }]),
-          },
-        });
+  // Mirror confirmed decisions / actions into org memory — skipped in privacy mode
+  if (syncOutside) {
+    const user = await prisma.user.findFirst({ where: { isCurrentUser: true } });
+    if (user) {
+      for (const d of summary.decisions) {
+        const exists = meeting.decisions.some((x) => x.title === d.text);
+        if (!exists) {
+          await prisma.decision.create({
+            data: {
+              organizationId: user.organizationId,
+              projectId: meeting.projectId,
+              meetingId: meeting.id,
+              ownerId: user.id,
+              title: d.text,
+              summary: summary.tldr,
+              status: d.status === "confirmed" ? "confirmed" : "proposed",
+              confirmedAt: d.status === "confirmed" ? new Date() : null,
+              evidenceJson: JSON.stringify([
+                { label: "Meeting summary", href: `/meetings/${meeting.id}` },
+              ]),
+            },
+          });
+        }
       }
-    }
-    for (const a of summary.actionItems) {
-      const exists = meeting.actionItems.some((x) => x.title === a.text);
-      if (!exists) {
-        const owner = await prisma.user.findFirst({
-          where: { name: { contains: a.owner.split(" ")[0] ?? a.owner } },
-        });
-        await prisma.actionItem.create({
-          data: {
-            organizationId: user.organizationId,
-            projectId: meeting.projectId,
-            meetingId: meeting.id,
-            ownerId: owner?.id,
-            title: a.text,
-            description: a.due ? `Due: ${a.due}` : null,
-            status: "open",
-          },
-        });
+      for (const a of summary.actionItems) {
+        const exists = meeting.actionItems.some((x) => x.title === a.text);
+        if (!exists) {
+          const owner = await prisma.user.findFirst({
+            where: { name: { contains: a.owner.split(" ")[0] ?? a.owner } },
+          });
+          await prisma.actionItem.create({
+            data: {
+              organizationId: user.organizationId,
+              projectId: meeting.projectId,
+              meetingId: meeting.id,
+              ownerId: owner?.id,
+              title: a.text,
+              description: a.due ? `Due: ${a.due}` : null,
+              status: "open",
+            },
+          });
+        }
       }
     }
   }
@@ -430,21 +467,23 @@ export async function generateMeetingSummary(meetingId: string) {
     data: {
       organizationId: meeting.organizationId,
       actor: "relay-ai",
-      action: "meeting.summary.generated",
+      action: privateMeeting ? "meeting.summary.generated.private" : "meeting.summary.generated",
       targetType: "Meeting",
       targetId: meeting.id,
-      detail: summary.headline,
+      detail: privateMeeting
+        ? "Private summary kept in-meeting only (not synced to Memory or project)"
+        : summary.headline,
     },
   });
 
   revalidatePath(`/meetings/${meetingId}`);
   revalidatePath("/meetings");
-  revalidatePath("/memory");
-  return { ok: true as const, summary };
+  if (syncOutside) revalidatePath("/memory");
+  return { ok: true as const, summary, privacyMode: privateMeeting };
 }
 
 export async function markMeetingComplete(meetingId: string) {
-  const { summary } = await generateMeetingSummary(meetingId);
+  const { summary, privacyMode } = await generateMeetingSummary(meetingId);
   await prisma.meeting.update({
     where: { id: meetingId },
     data: { status: "completed" },
@@ -452,6 +491,6 @@ export async function markMeetingComplete(meetingId: string) {
   revalidatePath(`/meetings/${meetingId}`);
   revalidatePath("/meetings");
   revalidatePath("/calendar");
-  revalidatePath("/memory");
-  return { ok: true as const, summary };
+  if (shouldSyncMeetingOutside(privacyMode)) revalidatePath("/memory");
+  return { ok: true as const, summary, privacyMode };
 }

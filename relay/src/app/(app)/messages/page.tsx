@@ -1,22 +1,26 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { MessagesSquare } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
-import { Badge } from "@/components/ui/badge";
-import { formatRelative } from "@/lib/utils";
+import { ConversationRail } from "@/components/messages/conversation-rail";
 import { ensureSeeded } from "@/lib/ensure-seeded";
-import { getChannels, getCurrentUser, getNotifications } from "@/lib/queries";
+import {
+  getConversations,
+  getCurrentUser,
+  getNotifications,
+} from "@/lib/queries";
 
 export default async function MessagesIndexPage() {
   if (!(await ensureSeeded())) redirect("/setup");
-  const [user, channels, notifications] = await Promise.all([
+  const [user, conversations, notifications] = await Promise.all([
     getCurrentUser(),
-    getChannels(),
+    getConversations(),
     getNotifications(),
   ]);
   if (!user) redirect("/setup");
 
-  const dms = channels.filter((c) => c.type === "dm" || c.type === "group");
-  const chans = channels.filter((c) => c.type === "public" || c.type === "private");
+  // Land on the most recently active conversation (messaging-app default).
+  const latest = conversations.find((c) => c.messages[0]) ?? conversations[0];
+  if (latest) redirect(`/messages/${latest.slug}`);
 
   return (
     <AppShell
@@ -24,66 +28,28 @@ export default async function MessagesIndexPage() {
       unread={notifications.filter((n) => !n.read).length}
       header={
         <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-faint">Messages</p>
+          <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-faint">
+            Messages
+          </p>
           <p className="text-sm font-medium text-ink">Inbox</p>
         </div>
       }
-      contextTitle="Tips"
-      context={
-        <p className="text-xs leading-relaxed text-muted">
-          Open a channel or DM to send messages, react, and ask Relay to summarize. AI actions preview before
-          consequential side effects.
-        </p>
-      }
     >
-      <div className="mx-auto grid max-w-4xl gap-6 p-5 md:grid-cols-2 md:p-6">
-        <ConversationList title="Direct & group" items={dms} />
-        <ConversationList title="Channels" items={chans} />
+      <div className="flex h-[calc(100vh-3rem)]">
+        <ConversationRail
+          conversations={conversations}
+          currentUserId={user.id}
+        />
+        <div className="hidden min-w-0 flex-1 flex-col items-center justify-center px-6 text-center md:flex">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface-2 text-faint">
+            <MessagesSquare className="h-5 w-5" />
+          </div>
+          <p className="font-display text-lg tracking-tight text-ink">Select a conversation</p>
+          <p className="mt-1.5 max-w-xs text-sm text-muted">
+            People and channels are listed on the left, newest activity first.
+          </p>
+        </div>
       </div>
     </AppShell>
-  );
-}
-
-function ConversationList({
-  title,
-  items,
-}: {
-  title: string
-  items: Awaited<ReturnType<typeof getChannels>>
-}) {
-  return (
-    <section>
-      <h2 className="mb-3 text-sm font-semibold text-ink">{title}</h2>
-      <ul className="space-y-1">
-        {items.map((c) => {
-          const last = c.messages[0];
-          return (
-            <li key={c.id}>
-              <Link
-                href={`/messages/${c.slug}`}
-                className="flex items-start justify-between gap-3 rounded-relay border border-transparent px-3 py-2.5 hover:border-line hover:bg-surface-2/50"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-ink">
-                      {c.type === "public" || c.type === "private" ? `#${c.name}` : c.name}
-                    </p>
-                    <Badge tone="muted">{c.type}</Badge>
-                  </div>
-                  {last && (
-                    <p className="mt-1 truncate text-xs text-muted">
-                      {last.author.name}: {last.body}
-                    </p>
-                  )}
-                </div>
-                {last && (
-                  <span className="shrink-0 text-[11px] text-faint">{formatRelative(last.createdAt)}</span>
-                )}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
   );
 }

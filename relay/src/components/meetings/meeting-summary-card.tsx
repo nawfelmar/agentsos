@@ -12,10 +12,12 @@ export function MeetingSummaryCard({
   meetingId,
   status,
   summary,
+  privacyMode = false,
 }: {
   meetingId: string
   status: string
   summary: MeetingSummary | null
+  privacyMode?: boolean
 }) {
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -27,6 +29,7 @@ export function MeetingSummaryCard({
           <FileText className="h-4 w-4 text-accent" />
           <h2 className="text-sm font-semibold text-ink">Meeting summary</h2>
           {summary && <Badge tone="accent">{summary.mode}</Badge>}
+          {privacyMode && <Badge tone="success">Not shared outside</Badge>}
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -64,6 +67,9 @@ export function MeetingSummaryCard({
         <p className="text-xs text-muted">
           One click builds a clear summary: TL;DR, decisions, owners, open questions, and audience notes —
           written for skimming, not a transcript dump.
+          {privacyMode
+            ? " Privacy mode is on — this stays in the meeting and will not sync to Memory or the project."
+            : ""}
         </p>
       ) : (
         <div className="space-y-4">

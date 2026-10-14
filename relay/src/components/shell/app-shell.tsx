@@ -5,6 +5,8 @@ import { PanelRight } from "lucide-react";
 import { Sidebar } from "./sidebar";
 import { RightPanel } from "./right-panel";
 import { Button } from "@/components/ui/button";
+import { OngoingCallBar } from "@/components/calls/ongoing-call-bar";
+import type { ActiveDirectCallSummary } from "@/lib/actions/direct-call";
 
 export function AppShell({
   user,
@@ -13,6 +15,10 @@ export function AppShell({
   context,
   children,
   header,
+  /** Immersive call layout: collapse nav, fill main, keep right board open */
+  callMode = false,
+  /** Optional SSR seed for the global ongoing-call chrome */
+  activeCall = null,
 }: {
   user: {
     name: string
@@ -26,20 +32,31 @@ export function AppShell({
   context?: React.ReactNode
   children: React.ReactNode
   header?: React.ReactNode
+  callMode?: boolean
+  activeCall?: ActiveDirectCallSummary | null
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(callMode);
   const [panelOpen, setPanelOpen] = useState(Boolean(context));
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        collapsed={collapsed}
-        onToggle={() => setCollapsed((v) => !v)}
-        user={user}
-        unread={unread}
-      />
+      {!callMode && (
+        <Sidebar
+          collapsed={collapsed}
+          onToggle={() => setCollapsed((v) => !v)}
+          user={user}
+          unread={unread}
+        />
+      )}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-line bg-surface/80 px-4 backdrop-blur">
+        <OngoingCallBar initial={activeCall} hideOnCallPage />
+        <header
+          className={
+            callMode
+              ? "flex h-10 shrink-0 items-center justify-between gap-3 border-b border-line/60 bg-[#0a0d12]/95 px-4"
+              : "flex h-12 shrink-0 items-center justify-between gap-3 border-b border-line bg-surface/80 px-4 backdrop-blur"
+          }
+        >
           <div className="min-w-0 flex-1">{header}</div>
           {context && (
             <Button
@@ -53,12 +70,21 @@ export function AppShell({
           )}
         </header>
         <div className="flex min-h-0 flex-1">
-          <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+          <main
+            className={
+              callMode
+                ? "relative min-w-0 flex-1 overflow-hidden"
+                : "min-w-0 flex-1 overflow-y-auto"
+            }
+          >
+            {children}
+          </main>
           {context && (
             <RightPanel
               open={panelOpen}
               onClose={() => setPanelOpen(false)}
               title={contextTitle ?? "Context"}
+              forceVisible={callMode}
             >
               {context}
             </RightPanel>

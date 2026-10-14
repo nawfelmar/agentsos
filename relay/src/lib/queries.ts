@@ -130,9 +130,24 @@ export async function getChannels() {
         take: 1,
         include: { author: true },
       },
+      members: { include: { user: true } },
       _count: { select: { messages: true } },
     },
     orderBy: { name: "asc" },
+  });
+}
+
+/** Conversations for the messages rail — newest activity first (messaging-app order). */
+export async function getConversations() {
+  const channels = await getChannels();
+  return [...channels].sort((a, b) => {
+    const aAt = a.messages[0]?.createdAt
+      ? new Date(a.messages[0].createdAt).getTime()
+      : new Date(a.createdAt).getTime();
+    const bAt = b.messages[0]?.createdAt
+      ? new Date(b.messages[0].createdAt).getTime()
+      : new Date(b.createdAt).getTime();
+    return bAt - aAt;
   });
 }
 
@@ -149,6 +164,7 @@ export async function getChannelBySlug(slug: string) {
         },
         orderBy: { createdAt: "asc" },
       },
+      members: { include: { user: true } },
       project: true,
       team: true,
     },
@@ -162,6 +178,46 @@ export async function getMeetings() {
       project: true,
     },
     orderBy: { startAt: "asc" },
+  });
+}
+
+/** Active live meeting, if any. */
+export async function getLiveMeeting() {
+  return prisma.meeting.findFirst({
+    where: { status: "in_progress" },
+    include: {
+      participants: true,
+    },
+    orderBy: { startAt: "desc" },
+  });
+}
+
+/** Open 1:1 direct call for the current user (ringing or active). */
+export async function getActiveDirectCall(userId?: string) {
+  const id =
+    userId ??
+    (await prisma.user.findFirst({ where: { isCurrentUser: true } }))?.id;
+  if (!id) return null;
+  return prisma.directCall.findFirst({
+    where: {
+      status: { in: ["ringing", "active"] },
+      OR: [{ callerId: id }, { calleeId: id }],
+    },
+    include: {
+      caller: true,
+      callee: true,
+    },
+    orderBy: { startedAt: "desc" },
+  });
+}
+
+export async function getDirectCall(id: string) {
+  return prisma.directCall.findUnique({
+    where: { id },
+    include: {
+      caller: true,
+      callee: true,
+    },
   });
 }
 

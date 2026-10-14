@@ -7,6 +7,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MeetingRoomControls } from "@/components/meetings/meeting-room-controls";
+import { PrivacyModeToggle } from "@/components/meetings/privacy-mode-toggle";
 import { generateMeetingPositions } from "@/lib/actions/meetings";
 import {
   STANCE_LABEL,
@@ -56,12 +57,18 @@ export function SharedMeetingBoard({
   topic,
   participants,
   positions,
+  privacyMode = false,
+  selfName = "You",
+  selfColor = "#5B8DEF",
 }: {
   meetingId: string
   status: string
   topic: string
   participants: Participant[]
   positions: MeetingPositions | null
+  privacyMode?: boolean
+  selfName?: string
+  selfColor?: string
 }) {
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -106,9 +113,11 @@ export function SharedMeetingBoard({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {privacyMode && <Badge tone="success">Private room</Badge>}
           {positions && (
             <Badge tone="accent">{positions.alignmentLabel}</Badge>
           )}
+          <PrivacyModeToggle meetingId={meetingId} privacyMode={privacyMode} />
           <Button
             size="sm"
             variant="ghost"
@@ -125,6 +134,12 @@ export function SharedMeetingBoard({
           </Button>
         </div>
       </div>
+      {privacyMode && (
+        <div className="border-b border-success/25 bg-success/5 px-4 py-2 text-[11px] text-muted">
+          Privacy mode is on — summaries, decisions, and highlights stay in this room and are not
+          shared to Memory, stakeholders, or the broader project.
+        </div>
+      )}
 
       {/* Alignment strip — always on the shared board */}
       {positions && orderedHighlights.length > 0 && (
@@ -219,7 +234,13 @@ export function SharedMeetingBoard({
             })}
           </div>
 
-          <MeetingRoomControls meetingId={meetingId} status={status} />
+          <MeetingRoomControls
+            meetingId={meetingId}
+            status={status}
+            privacyMode={privacyMode}
+            selfName={selfName}
+            selfColor={selfColor}
+          />
         </div>
 
         {/* Shared statement feed — the clear board everyone sees */}

@@ -1,18 +1,27 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { AppShell } from "@/components/shell/app-shell";
-import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { CreateDummyMeetingButton } from "@/components/meetings/create-dummy-meeting-button";
+import { PeopleDirectory } from "@/components/people/people-directory";
 import { ensureSeeded } from "@/lib/ensure-seeded";
-import { getCurrentUser, getNotifications, getUsers } from "@/lib/queries";
+import {
+  getActiveDirectCall,
+  getCurrentUser,
+  getNotifications,
+  getUsers,
+} from "@/lib/queries";
+import { getActiveDirectCallSummary } from "@/lib/actions/direct-call";
 import { prisma } from "@/lib/db";
 
 export default async function PeoplePage() {
   if (!(await ensureSeeded())) redirect("/setup");
-  const [user, notifications, users] = await Promise.all([
+  const [user, notifications, users, activeCall, activeCallSummary] = await Promise.all([
     getCurrentUser(),
     getNotifications(),
     getUsers(),
+    getActiveDirectCall(),
+    getActiveDirectCallSummary(),
   ]);
   if (!user) redirect("/setup");
 
@@ -26,92 +35,83 @@ export default async function PeoplePage() {
     teamByUser.set(m.userId, list);
   }
 
-  const byRole = {
-    executive: users.filter((u) => u.role === "executive"),
-    tech_lead: users.filter((u) => u.role === "tech_lead"),
-    engineer: users.filter((u) => u.role === "engineer"),
-    product: users.filter((u) => u.role === "product"),
-    other: users.filter(
-      (u) => !["executive", "tech_lead", "engineer", "product"].includes(u.role)
-    ),
-  };
+  const callerBusy = Boolean(activeCall);
+  const peerName =
+    activeCall &&
+    (activeCall.callerId === user.id ? activeCall.callee.name : activeCall.caller.name);
+
+  const people = users.map((u) => ({
+    id: u.id,
+    name: u.name,
+    title: u.title,
+    email: u.email,
+    role: u.role,
+    avatarColor: u.avatarColor,
+    status: u.status,
+    isCurrentUser: u.isCurrentUser,
+    teams: teamByUser.get(u.id) ?? [],
+  }));
 
   return (
     <AppShell
       user={user}
       unread={notifications.filter((n) => !n.read).length}
+      activeCall={activeCallSummary}
       header={
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-faint">People</p>
           <p className="text-sm font-medium text-ink">Dummy employees · {users.length}</p>
         </div>
       }
-      contextTitle="Demo data"
+      contextTitle="Directory"
       context={
         <div className="space-y-3 text-xs text-muted">
           <p>
-            Northline is seeded with a full engineering org. Create a dummy meeting to put several of
-            them on a shared board with statement highlights.
+            <strong className="text-ink">Chat</strong> opens a DM.{" "}
+            <strong className="text-ink">Call</strong> starts a 1:1 with camera and mic (hidden while
+            you’re already in a call).
           </p>
+          {activeCall ? (
+            <p>
+              You’re in a call with {peerName}.{" "}
+              <Link href={`/calls/${activeCall.id}`} className="text-accent hover:underline">
+                Return to call
+              </Link>
+            </p>
+          ) : (
+            <p>Search the directory, then Chat or Call anyone.</p>
+          )}
           <CreateDummyMeetingButton className="w-full" />
         </div>
       }
     >
-      <div className="mx-auto max-w-5xl space-y-6 p-5 md:p-6">
+      <div className="mx-auto max-w-5xl space-y-5 p-5 md:p-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="font-display text-xl text-ink">Directory</h1>
             <p className="mt-1 text-sm text-muted">
-              Seeded employees across Platform, Checkout, and Data.
+              Search the org, then Chat (DM) or Call (1:1 video) next to anyone.
             </p>
+            {callerBusy && (
+              <p className="mt-2 text-xs text-warn">
+                Call is hidden while you’re with {peerName}.{" "}
+                <Link href={`/calls/${activeCall!.id}`} className="underline">
+                  Open call
+                </Link>
+              </p>
+            )}
           </div>
-          <CreateDummyMeetingButton variant="secondary" />
+          <div className="flex flex-wrap items-center gap-2">
+            {callerBusy && <Badge tone="warn">In a call</Badge>}
+            <CreateDummyMeetingButton variant="secondary" />
+          </div>
         </div>
 
-        {(
-          [
-            ["Executives", byRole.executive],
-            ["Tech leads", byRole.tech_lead],
-            ["Engineers", byRole.engineer],
-            ["Product & design", byRole.product],
-            ["Other", byRole.other],
-          ] as const
-        ).map(([label, list]) =>
-          list.length === 0 ? null : (
-            <section key={label} className="space-y-2">
-              <h2 className="text-sm font-semibold text-ink">
-                {label}{" "}
-                <span className="text-faint font-normal">· {list.length}</span>
-              </h2>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {list.map((u) => (
-                  <article
-                    key={u.id}
-                    className="flex items-start gap-3 rounded-relay border border-line bg-surface/70 p-3"
-                  >
-                    <Avatar name={u.name} color={u.avatarColor} status={u.status} />
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="text-sm font-medium text-ink">{u.name}</p>
-                        {u.isCurrentUser && <Badge tone="accent">you</Badge>}
-                      </div>
-                      <p className="text-xs text-muted">{u.title}</p>
-                      <p className="mt-1 text-[11px] text-faint">{u.email}</p>
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        <Badge tone="muted">{u.role}</Badge>
-                        {(teamByUser.get(u.id) ?? []).map((t) => (
-                          <Badge key={t} tone="muted">
-                            {t}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )
-        )}
+        <PeopleDirectory
+          people={people}
+          callerBusy={callerBusy}
+          activeCallHref={activeCall ? `/calls/${activeCall.id}` : null}
+        />
       </div>
     </AppShell>
   );

@@ -26,6 +26,7 @@ model Organization {
   policies  AutonomyPolicy[]
   auditEvents AuditEvent[]
   prompts   CoordinationPrompt[]
+  directCalls DirectCall[]
 }
 
 model User {
@@ -50,8 +51,28 @@ model User {
   ownedActions   ActionItem[] @relation("ActionOwner")
   notifications  Notification[]
   approvals      Approval[]
+  callsMade      DirectCall[] @relation("CallsMade")
+  callsReceived  DirectCall[] @relation("CallsReceived")
+  channelMembers ChannelMember[]
 
   @@unique([organizationId, email])
+}
+
+/// 1:1 direct call between two people (not a group meeting).
+model DirectCall {
+  id             String    @id @default(cuid())
+  organizationId String
+  callerId       String
+  calleeId       String
+  status         String    @default("ringing") // ringing | active | ended | declined | missed
+  privacyMode    Boolean   @default(false)
+  startedAt      DateTime  @default(now())
+  answeredAt     DateTime?
+  endedAt        DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  caller       User         @relation("CallsMade", fields: [callerId], references: [id])
+  callee       User         @relation("CallsReceived", fields: [calleeId], references: [id])
 }
 
 model Team {
@@ -133,6 +154,7 @@ model ChannelMember {
   lastReadAt DateTime?
 
   channel Channel @relation(fields: [channelId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
 
   @@unique([channelId, userId])
 }
@@ -177,6 +199,7 @@ model Meeting {
   outcomesJson   String   @default("{}")
   isAiProposed   Boolean  @default(false)
   demoMode       Boolean  @default(true)
+  privacyMode    Boolean  @default(false) // when true, outcomes stay in-meeting only (no org memory / stakeholder sync)
   preparationStatus String @default("ready") // needs_prep | ready | complete
   createdAt      DateTime @default(now())
 

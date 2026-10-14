@@ -73,8 +73,14 @@ export async function summarizeConversation(messages: { author: string; body: st
     };
   }
 
+  const authors = Array.from(new Set(messages.map((m) => m.author)));
+  const preview = messages
+    .slice(0, 3)
+    .map((m) => `${m.author}: ${m.body.slice(0, 80)}`)
+    .join(" · ");
+
   return {
-    summary: `Thread covers ${messages.length} messages. Primary theme: ${messages[messages.length - 1]?.body.slice(0, 120)}…`,
+    summary: `Summary of ${messages.length} selected message${messages.length === 1 ? "" : "s"} (${authors.slice(0, 4).join(", ")}${authors.length > 4 ? "…" : ""}). Themes: ${preview}${messages.length > 3 ? "…" : ""}`,
     decisions: ["Coordinate next steps with dependency owner before expanding scope."],
     openQuestions: ["What is the earliest feasible unblock window?"],
     mode: "demo",
