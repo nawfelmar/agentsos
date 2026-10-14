@@ -6,9 +6,11 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { DemoBanner } from "@/components/ui/demo-banner";
 import { MeetingRoomControls } from "@/components/meetings/meeting-room-controls";
+import { MeetingSummaryCard } from "@/components/meetings/meeting-summary-card";
 import { parseJson } from "@/lib/utils";
 import { ensureSeeded } from "@/lib/ensure-seeded";
 import { getCurrentUser, getMeeting, getNotifications } from "@/lib/queries";
+import type { MeetingSummary } from "@/lib/domain/meeting-summary";
 
 export default async function MeetingDetailPage({ params }: { params: { id: string } }) {
   if (!(await ensureSeeded())) redirect("/setup");
@@ -21,7 +23,10 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
   if (!meeting) notFound();
 
   const agenda = parseJson<{ item: string; owner: string }[]>(meeting.agendaJson, []);
-  const outcomes = parseJson<{ summary?: string }>(meeting.outcomesJson, {});
+  const outcomes = parseJson<{ summary?: string; structured?: MeetingSummary }>(
+    meeting.outcomesJson,
+    {}
+  );
 
   return (
     <AppShell
@@ -40,8 +45,8 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
       context={
         <div className="space-y-3 text-xs text-muted">
           <p>
-            Relay prepared this meeting from unresolved blocker evidence. During the room, it tracks decisions
-            and unanswered questions without interrupting continuously.
+            Relay keeps summaries short and structured: TL;DR → decisions → owners → open questions →
+            audience notes. No transcript dump.
           </p>
           <Badge tone="accent">Demo AI participant</Badge>
           {meeting.isAiProposed && (
@@ -49,11 +54,16 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
               View coordination timeline →
             </Link>
           )}
+          {outcomes.structured && (
+            <Link href="/memory" className="block text-accent hover:underline">
+              Open in Decisions & Memory →
+            </Link>
+          )}
         </div>
       }
     >
       <div className="mx-auto max-w-5xl space-y-5 p-5 md:p-6">
-        <DemoBanner kinds={["av"]} />
+        <DemoBanner kinds={["av", "llm"]} />
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="font-display text-xl text-ink">{meeting.title}</h1>
@@ -67,6 +77,12 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
             <Badge tone="muted">{meeting.status}</Badge>
           </div>
         </div>
+
+        <MeetingSummaryCard
+          meetingId={meeting.id}
+          status={meeting.status}
+          summary={outcomes.structured ?? null}
+        />
 
         <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
           <section className="rounded-relay border border-line bg-surface/60 p-4">
@@ -110,7 +126,9 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
                 Decisions & actions
               </p>
               {meeting.decisions.length === 0 && meeting.actionItems.length === 0 ? (
-                <p className="text-xs text-muted">Captured after approval / meeting completion.</p>
+                <p className="text-xs text-muted">
+                  Generated from the summary — click Generate summary above.
+                </p>
               ) : (
                 <ul className="space-y-2">
                   {meeting.decisions.map((d) => (
@@ -127,9 +145,6 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
                     </li>
                   ))}
                 </ul>
-              )}
-              {outcomes.summary && (
-                <p className="mt-3 border-t border-line pt-3 text-xs text-muted">{outcomes.summary}</p>
               )}
             </section>
           </div>

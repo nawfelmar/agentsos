@@ -1,11 +1,10 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Mic, MicOff, MonitorUp, PhoneOff, Video, VideoOff } from "lucide-react";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { cancelMeeting, markMeetingComplete } from "@/lib/actions/meetings";
+import { cancelMeeting } from "@/lib/actions/meetings";
 
 export function MeetingRoomControls({
   meetingId,
@@ -47,26 +46,9 @@ export function MeetingRoomControls({
         </Button>
       </div>
       <p className="text-center text-[11px] text-faint">
-        Demo meeting room — A/V is simulated until LiveKit (or similar) credentials are configured.
+        Demo meeting room — use <span className="text-muted">Generate summary</span> below for a clear
+        outcomes brief (not a raw transcript).
       </p>
-      {status !== "completed" && status !== "cancelled" && (
-        <Button
-          variant="secondary"
-          className="w-full"
-          disabled={pending}
-          onClick={() =>
-            start(async () => {
-              await markMeetingComplete(
-                meetingId,
-                "Demo completion: decisions and follow-ups synced to organizational memory."
-              );
-              router.refresh();
-            })
-          }
-        >
-          Mark complete (demo)
-        </Button>
-      )}
     </div>
   );
 }

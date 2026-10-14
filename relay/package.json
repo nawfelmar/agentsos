@@ -8,7 +8,7 @@
     "start": "next start -p 3001",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/lib/domain/approve-meeting.test.ts src/lib/domain/coordination-actions.test.ts",
+    "test": "tsx --test src/lib/domain/*.test.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
